@@ -4,6 +4,8 @@ v. 0.25
 ----------
 A demo for G wall
 
+![preview](https://i.imgur.com/3rtom4fr.png)
+
 Current Features
 -----------------
 	- G trends interaction via control panel
@@ -21,4 +23,3 @@ Todo
 	- downloadable screen captures to svg/jpg/png
 	- interactive mobile app to draw on surface
 
-!(preview)[https://i.imgur.com/3rtom4fr.png]
