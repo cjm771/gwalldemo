@@ -167,7 +167,7 @@ class GTrends{
     region code for california: "US-CA, returns counties?
   
     //seattle term popularity in california
-    ex. https://www.googleapis.com/trends/v1beta/regions?restrictions.geo=US-CA&term=seattle&key=***REMOVED***
+    ex. https://www.googleapis.com/trends/v1beta/regions?restrictions.geo=US-CA&term=seattle&key=[APIKEY]
   
   */
   
@@ -368,7 +368,7 @@ class GTrends{
     region code for california: "US-CA, returns counties?
   
     //seattle search term popularity (in washington region)
-    ex. https://www.googleapis.com/trends/v1beta/graph?terms=seattle&restrictions.geo=US-WA&key=***REMOVED***
+    ex. https://www.googleapis.com/trends/v1beta/graph?terms=seattle&restrictions.geo=US-WA&key=[APIKEY]
   
   */
     //shorthand for graph query
