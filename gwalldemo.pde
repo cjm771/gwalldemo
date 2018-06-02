@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.Hashtable;
 import com.google.gson.Gson;
 
-String VERSION = "0.25";
+String VERSION = "0.35.2";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;

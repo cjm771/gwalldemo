@@ -19,6 +19,7 @@ boolean buttonAInit = false;
 boolean buttonBInit = false;
 boolean buttonCInit = false;
 boolean buttonDInit = false;
+boolean buttonUp = true;
 
 String textValue = "Seattle";
 String searchDate = "01/01/2018";
@@ -235,6 +236,7 @@ class ControlFrame extends PApplet {
       int count = 0;
       float angleBuffer =2 ;
       noStroke();
+      float[] savedAngles = new float[catPercentages.size()];
       for (String key : keys) {
         //remap from 0 to 100 to 360
         currentAngle = map(catPercentages.get(key), 0, 100, 0, 360);
@@ -244,7 +246,7 @@ class ControlFrame extends PApplet {
         fill(warmColorRange[count]);
         arc(x, y, diameter-thickness/2, diameter-thickness/2, lastAngle+radians(angleBuffer), lastAngle+radians(currentAngle)-radians(angleBuffer));
         lastAngle += radians(currentAngle);
-
+      
 
         int textX = x+(diameter/2)+30;
         int textY =  y-(diameter/2)+ 10 +(count*12);
@@ -259,11 +261,21 @@ class ControlFrame extends PApplet {
         fill(255);
         textSize(10);
         text(key, textX, textY);
-
+        savedAngles[count] = currentAngle;
         count++;
       }
       fill(0);
       ellipse(x, y, (diameter-thickness), (diameter-thickness));
+      /*
+      for (int i=0; i<savedAngles.length; i++){
+        float translationAngle = savedAngles[i];
+        float amplitude = (diameter-thickness)/2-5;
+        fill(255);
+        textSize(10);
+        //println(x," ", x amplitude * cos(translationAngle)," ", y," ", y+amplitude * sin(translationAngle));
+        text(i+1, x+amplitude * cos(translationAngle), y-amplitude * sin(translationAngle));
+      }
+       */
     }
   }
 
@@ -316,6 +328,13 @@ class ControlFrame extends PApplet {
       checkGraphMapHover(x, y, w, h, dateNames, nums);
     }
   }
+  
+  public void makeNextPrevTriangle(int x,int y,int w,int h,boolean prev){
+    if (prev){
+      w*=-1;
+    }
+    triangle(x,y,x,y+h, x+w, y+h/2);
+  }
 
   public void checkGraphMapHover(int x, int y, int w, int h,String[] dateNames, int[] nums) {
     //add a buffer to capture more
@@ -323,12 +342,13 @@ class ControlFrame extends PApplet {
     int monthBuffer = 20;
     x = x- buffer;
     w = w-(buffer);
-      textSize(8);
+      textSize(11);
       textAlign(RIGHT);
+     int calcIndex = int(((dateNames.length-1)*(mouseX-x))/(w-buffer));
     if (mouseX > x && mouseX < x+w && 
       mouseY < y && mouseY > y-h) {
      
-      int calcIndex = int(((dateNames.length-1)*(mouseX-x))/(w-buffer));
+      
       stroke(color(255,0,0));
       line(mouseX, y,mouseX, y-nums[calcIndex]); 
      
@@ -343,14 +363,44 @@ class ControlFrame extends PApplet {
     
     }else if (mouseX > x-monthBuffer && mouseX < x+w+monthBuffer && 
       mouseY < y && mouseY > y-h) {
+         int modifier = 1;
         //next month
         if (mouseX>x){
-        text("Click to jump to next month", x+w, y-h-20);
+        text("Click to jump to next month ", x+w, y-h-20);
+        makeNextPrevTriangle(int(x+w+monthBuffer),y-h/2,8,10, false);
+       
         }else{
          text("Click to jump back a month", x+w, y-h-20);
+          makeNextPrevTriangle(int(x-monthBuffer),y-h/2,8,10, true);
+          modifier = -1;
+        }
+        if (mousePressed & buttonUp==true){
+          buttonUp = false;
+           String zeroPrefix = "";
+         //set new value
+         int newMonth =Integer.parseInt(searchDate.split("/")[0])+modifier;
+         int newYear = Integer.parseInt(searchDate.split("/")[2]);
+         if (newMonth==0){
+           newMonth = 12;
+           newYear--;
+         }else if (newMonth>12){
+           newMonth=newMonth%12;
+           newYear++;
+         }else if (newMonth<10){
+           zeroPrefix = "0";
+         }
+         String newDate = zeroPrefix+newMonth+"/"+searchDate.split("/")[1]+"/"+newYear;
+         _log(new Object[]{"new date: ", newDate});
+          cp5.get(Textfield.class, "date").setValue(newDate);
+          //then trigger event
+          date(newDate);
         }
     }
     textAlign(LEFT);
+  }
+  
+  public void mouseReleased(){
+    buttonUp = true;
   }
 
   public void drawUSMap(int x, int y) {
