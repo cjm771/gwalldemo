@@ -83,11 +83,35 @@ class WallMatrix {
     //then .. run various distribution routines for cells, and apply coloration + tones, than return that damn matrix
     //apply warmcoolfactor to current new matrix ids.
     tmpMatrix = setWarmCool(tmpMatrix, matrixId);
+    //apply category tones
+    tmpMatrix = setCatTones(tmpMatrix, matrixId);
     matrixId++;
     
     return tmpMatrix;
     
   }
+  
+  
+  public int[] range(int st, int end){
+    int[] arr = new int[end+1-st];
+    for (int i =0; i<end+1-st; i++){
+      arr[i] = st+i;
+    }
+    return arr;
+  }
+  //set warm and cool given the currentMatrix and mId 
+  public Hashtable<String, MatrixCell> setCatTones(Hashtable<String, MatrixCell> matrix, int mId){
+    Set<String> keys = matrix.keySet();
+    Hashtable<String, Object> barDictionary = getListByDistributionBreakdown(range(0,catBreakdown.length+1), getBarIdsByMatrixId(matrix, mId), catBreakdown);
+    for (String key : keys) {
+      MatrixCell cell = matrix.get(key);
+      if (barDictionary.containsKey(cell.verticalBarId)){
+          matrix.get(key).colorIndex = (int)barDictionary.get(cell.verticalBarId);
+        }
+    }
+    return matrix;
+  }
+    
   
   //set warm and cool given the currentMatrix and mId 
   public Hashtable<String, MatrixCell> setWarmCool(Hashtable<String, MatrixCell> matrix, int mId){
@@ -97,7 +121,6 @@ class WallMatrix {
       for (String key : keys) {
         MatrixCell cell = matrix.get(key);
         if (barDictionary.containsKey(cell.verticalBarId)){
-         // log(new Object[]{"changing ", cell.verticalBarId," --> warm value old:",  cell.isWarm, "---> ", barDictionary.get(cell.verticalBarId)});
             matrix.get(key).isWarm = (boolean)barDictionary.get(cell.verticalBarId);
             
           }
@@ -159,6 +182,14 @@ class WallMatrix {
     }
     return hashtable;
   }
+    //overload for ints
+    public Hashtable<String, Object> getListByDistributionBreakdown(int[] items, String[] keys, float[] distribution) {
+      Object[] objArr = new Object[items.length];
+      for (int i=0; i<items.length; i++){
+        objArr[i] = items[i];
+      }
+      return getListByDistributionBreakdown(objArr, keys, distribution);
+    }
   
   public Object[] shuffle(Object[] array){
     Random rgen = new Random();  // Random number generator      

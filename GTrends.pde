@@ -15,16 +15,18 @@ import java.nio.charset.StandardCharsets;
 import java.io.UnsupportedEncodingException;
 class GTrends{
   
-    private String APIKEY = "***REMOVED***";
+    private String APIKEY = "[FILL IN APIKEY HERE]";
     private String ENDPOINT_PREFIX = "https://www.googleapis.com/trends/v1beta/";
     JSONObject jsonResp;
-     Hashtable<String, Integer> CATEGORIES= new Hashtable();
+     Hashtable<String, String> CATEGORIES= new Hashtable();
     JSONArray mapData = new JSONArray(); //raw map data (last query)
     Hashtable<String, Country> countries = new Hashtable(); //refined country data hashtables key is country code (last query)
     JSONArray popularityData = new JSONArray(); //last query 
-    float countryValue = 0;
+    float countryValue = 0; // value from 2 to 8. influences countryBarRange
     int countriesInvolved = 0;
-    float[]  countryPopRange = new float[]{100,0};
+    int[]  countryClamp = new int[]{2,8}; //clamp on calculated value..normally country value = 200-800
+    float[]  countryPopRange = new float[]{100,0}; //min max domain of country popularity..not used?
+    int[] countryBarRange = new int[]{4,10};  //store bar lengths here.. WE USE THIS!
     boolean waitingForResults = true;
     int currentDateValue = 0;
     int currentDateIndex = 0;
@@ -37,40 +39,46 @@ class GTrends{
   
     
    public GTrends(){
+     
        //load categories
        loadCategories();
    }
    
+   public int getWorldPercentageInterest(){
+       return ceil(map(countryValue, countryClamp[0],countryClamp[1],0,100)); 
+   }
    public float calcCountryValue(){
      float total = 0;
        Set<String> keys = countries.keySet();
-      for (String key: keys){
-       
-        Country country = countries.get(key);
-        if (!country.countryCode.equals("as")){
-          countryPopRange[0] = min(countryPopRange[0], country.value);
-          countryPopRange[1] = max(countryPopRange[1], country.value);
-          if (!country.countryCode.equals("us")){
-            total+=country.value;
-            if (country.value>1){
-              countriesInvolved++;
+      for (String key: keys){  
+          Country country = countries.get(key);
+          if (!country.countryCode.equals("as")){
+            countryPopRange[0] = min(countryPopRange[0], country.value);
+            countryPopRange[1] = max(countryPopRange[1], country.value);
+            if (!country.countryCode.equals("us")){
+              total+=country.value;
+              if (country.value>1){
+                countriesInvolved++;
+              
             }
           }
         }
       }
       countryValue = total;
+      countryValue = floor(max(countryClamp[0]*100, min(countryClamp[1]*100, countryValue))/100); //we get a number from 2-8
+      //reverse numbers to get smaller bars for higher number
+      int reverseCountryValue = (int)((countryClamp[0]+countryClamp[1])-countryValue);
+      //bars for 8-->4 to 10, bars for 2 --> 1 --> 3
+      countryBarRange = new int[]{ceil(reverseCountryValue/1.25), ceil(reverseCountryValue*2)};
       return total;
-  
    }
    
    public void loadCategories(){
-     CATEGORIES.put("Sports",20); //Sports
-     CATEGORIES.put("Business",12); //Business
-     CATEGORIES.put("Arts",3); //Arts
-     CATEGORIES.put("Technology",5); //Sports
-     CATEGORIES.put("RealEstate",29); //Real estate
-     CATEGORIES.put("Social",14); //Social
-     CATEGORIES.put("Politics", 19); //politics
+     CATEGORIES.put("Sports","Sports"); //Sports
+     CATEGORIES.put("Business","Business"); //Business
+     CATEGORIES.put("Arts","Arts"); //Arts
+     CATEGORIES.put("Real Estate","Housing"); //Real estate
+     CATEGORIES.put("Social", "Police"); //politics + social
    }
    
    String URLEncode(String string){
@@ -93,7 +101,7 @@ class GTrends{
   }
 
   //generic query to google server
-  //ex. query("graph", {terms: "seattle", restrictions.geo: "blah"});
+  //ex.  "graph", {terms: "seattle", restrictions.geo: "blah"});
    public JSONObject query(String endpoint_suffix, Hashtable params){
        String paramString = "";
        Set<String> keys = params.keySet();
@@ -225,20 +233,60 @@ class GTrends{
 
   }
   
+  public String generateMultipleTermsString(String[] terms){
+    String finalStr = "";
+    log(new Object[]{"terms arr:", terms});
+    for (int i=0; i<terms.length; i++){
+      if (i==0){
+        finalStr+=URLEncode(terms[i]);
+      }else{
+        finalStr+="&terms="+URLEncode(terms[i]);
+      }
+    }
+    return finalStr;
+  }
+  
   public Hashtable<String, Integer> getCategoryBreakdown(final String term, final String regionRestriction, final String startDate,final String endDate, final String specificDay){
        JSONArray tmpData;  
        Hashtable<String, Integer> catBreakdown = new Hashtable();
       Set<String> keys = CATEGORIES.keySet();
+      
+      //get categories as an array
+      String[] termsArr = new String[CATEGORIES.size()];
+      String[] keysArr = new String[CATEGORIES.size()];
+      int count = 0;
       for (String key: keys){
-       JSONObject results =  queryPopularity( term, CATEGORIES.get(key), regionRestriction, startDate,endDate, specificDay);
-       if (results.getString("status")=="success"){
-           tmpData = results.getJSONObject("data").getJSONArray("lines").getJSONObject(0).getJSONArray("points");
-           catBreakdown.put(key, getDateValue(tmpData, specificDay, false));
-       }
+        termsArr[count] = term+" "+CATEGORIES.get(key);
+        keysArr[count] = key;
+        count++;
       }
+      
+       JSONObject results =  graphQuery( generateMultipleTermsString(termsArr), -1, regionRestriction, startDate,endDate);
+       if (results.getString("status")=="success"){
+           for (int i=0; i<results.getJSONObject("data").getJSONArray("lines").size(); i++){
+              tmpData = results.getJSONObject("data").getJSONArray("lines").getJSONObject(i).getJSONArray("points");
+              catBreakdown.put(keysArr[i], getDateValue(tmpData, specificDay, false));
+           }
+
+       
+      }
+      log(new Object[]{"terms string:",  generateMultipleTermsString(termsArr), "\ncat size:", results.getJSONObject("data").getJSONArray("lines").size(), "\ncat breakdown: ", catBreakdown});
       categoryBreakdown = catBreakdown;
-      log(new Object[]{"cat breakdown boiii:", categoryBreakdown});
       return catBreakdown;
+  }
+  
+   public float[] getCategoryRatiosAsArray(){
+     
+     Hashtable<String, Float> percentages = getCategoryPercentages();
+     float[] result = new float[percentages.size()]; 
+     Set<String> keys =  percentages.keySet();
+     int count=0;
+     for (String key: keys){
+       result[count] = percentages.get(key)/100.0;
+       count++;
+     }
+     return result;
+
   }
   
    public float[] getCategoryPercentagesAsArray(){
@@ -323,8 +371,9 @@ class GTrends{
     ex. https://www.googleapis.com/trends/v1beta/graph?terms=seattle&restrictions.geo=US-WA&key=***REMOVED***
   
   */
-     public JSONObject queryPopularity(final String term, final int category, final String regionRestriction, final String startDate,final String endDate, final String specificDay){
-          JSONObject results = query("graph", new Hashtable<String, Object>(){
+    //shorthand for graph query
+    public  JSONObject graphQuery(final String term, final int category, final String regionRestriction, final String startDate,final String endDate){
+     return query("graph", new Hashtable<String, Object>(){
           { 
             put("terms", term);
             if (category>0){
@@ -335,6 +384,10 @@ class GTrends{
             put("restrictions.endDate", endDate);
           }
         });
+    }
+  
+     public JSONObject queryPopularity(final String term, final int category, final String regionRestriction, final String startDate,final String endDate, final String specificDay){
+          JSONObject results = graphQuery(term, category, regionRestriction, startDate, endDate);
         
         //just get the regions..remove additional object wrapper..if success of course
         if (results.getString("status")=="success"){

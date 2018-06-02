@@ -55,7 +55,7 @@ void setup() {
    //launch bg images + control panel
    thread("loadImagesAndControlPanel");
   
-
+    gt.APIKEY = getAPIKey();
 
    //lets init our gwallclient so we can read input coming in from the server (CURRENTLY DISABLED)
     gwc = new GWallClient(this);
@@ -64,6 +64,17 @@ void setup() {
     thread("doQueries");
 
 }
+
+  public String getAPIKey(){
+         //load apikey offsite
+        try{
+        String[] lines = loadStrings(dataPath("gapi.key"));
+        return lines[0];
+        }catch(Exception e){
+          log(new Object[]{"Error! ", e});
+        }
+        return "";
+   }
 
 public void loadImagesAndControlPanel(){
   //run seperate window for controls
@@ -98,7 +109,6 @@ public void popQuery(){
     JSONObject googleResp = gt.queryPopularity(textValue, -1, "", reformattedDate,reformattedDate, searchDate);
     if (googleResp.getString("status")=="success"){
       //we got data
-      log(new Object[]{"current day value:",gt.currentDateValue, "current day index", gt.currentDateIndex,"list of values:",gt.getDateValuesAsList()});
       if (matrix!=null)
         matrix.popularityFactor = (float)gt.currentDateValue/(float)100;
     }else{
@@ -127,6 +137,11 @@ public void regionQuery(){
       //we got data
       //log(new Object[]{googleResp.getString("status"), googleResp.getJSONObject("data")});
       log(new Object[]{"country_value: ", gt.countryValue});
+      //we got data
+      if (matrix!=null){
+        matrix.lengthRange = gt.countryBarRange;
+         log(new Object[]{"current bar range:",matrix.lengthRange});
+      }
     }else{
       //print out the error
       log(new Object[]{regionDataResp.getString("status"), " when querying trends api: ", regionDataResp.getString("message")});
@@ -214,16 +229,13 @@ void initRectangleData(){
       mainBoundsRowColTotals = parseIdStrToIntArr(cells[5]);
     }
   }
-  
-  log("we did it bruh");
-  //log(new Object[]{"total rows and columns:",mainBoundsRowColTotals});
   //we add one because we want totals not index
   matrix = new WallMatrix(
         mainBoundsRowColTotals[0]+1,
         mainBoundsRowColTotals[1]+1, 
         map(gt.currentDateValue,0,100,0,1),
-        new int[]{4,10}, 
-        gt.getCategoryPercentagesAsArray(), 
+        gt.countryBarRange, 
+        gt.getCategoryRatiosAsArray(), 
         new color[]{mainColors[0], mainColors[1]}, 
         new color[]{mainColors[2], mainColors[3]}
   );
@@ -307,7 +319,6 @@ void draw() {
     drawLoadingRoutine();
   }else if (gt.initPopQuery==1 || gt.initCatQuery==1 || gt.initRegionQuery==1){
     //ready to init matrix..
-    print("gettin it done");
     initRectangleData();
     gt.initPopQuery=2; 
     gt.initCatQuery=2;
