@@ -1,0 +1,19 @@
+{
+  "name": "gtrends-api",
+  "version": "1.0.0",
+  "description": "testing google trends api",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "startDev": "nodemon index.js"
+  },
+  "author": "chris malcolm",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^1.17.4"
+  },
+  "dependencies": {
+    "express": "^4.16.3",
+    "google-trends-api": "^4.6.2"
+  }
+}

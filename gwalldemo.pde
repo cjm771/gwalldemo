@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.Hashtable;
 import com.google.gson.Gson;
 
-String VERSION = "0.35.2";
+String VERSION = "0.38";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;
@@ -27,6 +27,7 @@ PImage bg,fg,logo;
 PShape worldMap;
 PFont font;
 Gson jsonParser = new Gson();
+boolean animationIsPaused = false;
 PShader blur;
 Bounds mainBounds;
 Hashtable <String, Bounds> Rects = new Hashtable();
@@ -110,7 +111,7 @@ public void popQuery(){
     if (googleResp.getString("status")=="success"){
       //we got data
       if (matrix!=null)
-        matrix.popularityFactor = (float)gt.currentDateValue/(float)100;
+        matrix.popularityFactor = (float)gt.clampedCurrentDateValue/(float)100;
     }else{
       //print out the error
       log(new Object[]{googleResp.getString("status"), " when querying trends api: ", googleResp.getString("message")});
@@ -129,18 +130,23 @@ public void catQuery(){
          gt.initCatQuery=1;
 }
 
+//perform hot topics query
+public void topicQuery(){
+    //query topics
+    JSONObject googleResp = gt.queryTopTopics(textValue, searchDate,searchDate);
+    if (googleResp.getString("status")=="success"){
+      //log(new Object[]{"hot topics boiii", gt.getHotTopics()});
+    }
+    
+}
+
 //perform region query
 public void regionQuery(){
     JSONObject regionDataResp = gt.queryRegions(textValue, "", reformattedDate,reformattedDate);
     //see what we get from the server
     if (regionDataResp.getString("status")=="success"){
-      //we got data
-      //log(new Object[]{googleResp.getString("status"), googleResp.getJSONObject("data")});
-      log(new Object[]{"country_value: ", gt.countryValue});
-      //we got data
       if (matrix!=null){
         matrix.lengthRange = gt.countryBarRange;
-         log(new Object[]{"current bar range:",matrix.lengthRange});
       }
     }else{
       //print out the error
@@ -158,6 +164,7 @@ public void doQueries(){
     thread("popQuery");
     thread("regionQuery");
     thread("catQuery");
+    thread("topicQuery");
 
 }
 
@@ -233,7 +240,7 @@ void initRectangleData(){
   matrix = new WallMatrix(
         mainBoundsRowColTotals[0]+1,
         mainBoundsRowColTotals[1]+1, 
-        map(gt.currentDateValue,0,100,0,1),
+        map(gt.clampedCurrentDateValue,0,100,0,1),
         gt.countryBarRange, 
         gt.getCategoryRatiosAsArray(), 
         new color[]{mainColors[0], mainColors[1]}, 
@@ -330,7 +337,9 @@ void draw() {
     
     background(0);
     //do shifting animation
-    matrix.shift();
+    if (!animationIsPaused){
+      matrix.shift();
+    }
     
     //listen to server
     gwc.readToConsole();
@@ -354,6 +363,11 @@ class Bounds {
 
   public float getWidth(){
     return abs(brX-tlX);
+  }
+  
+  public float[] getCenter(){
+    return new float[]{tlX+getWidth()/2,
+    tlY-getHeight()/2};
   }
   
   public void setBounds(Bounds _b){
@@ -392,6 +406,9 @@ class Bounds {
     noStroke();
     fill(brightenColor(c,60));
     rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
+    fill(255);
+    textSize(2);
+    //text(cell.pixelLength, getCenter()[0]*xRatio, getCenter()[1]*xRatio*-1);
 
   }
   public Bounds(float _tlX, float _tlY, float _brX, float _brY) {

@@ -29,9 +29,11 @@ class WallMatrix {
   //settings
   int[] lengthRange;
   int matrixId = 0; //deckId to pair with vertical bar id..incrementall grows
+  int[] randSpeeds;
   float popularityFactor = 0; //0.0-1.0 number representing popularity
   float[] catBreakdown;
   color[] cr, crHot;
+  
   String ANIMATION_MODE = "down"; //up or down..animation mode
 
 
@@ -92,6 +94,15 @@ class WallMatrix {
   }
   
   
+  //rand int from bank of options
+  public int[] randIntArr(int[] bank, int count){
+    int[] result = new int[count];
+    for (int i=0; i<count; i++){
+      result[i] = bank[floor(random(0,bank.length))];
+    }
+    return result;
+  }
+  //get range
   public int[] range(int st, int end){
     int[] arr = new int[end+1-st];
     for (int i =0; i<end+1-st; i++){
@@ -220,12 +231,17 @@ class WallMatrix {
     return resStr;
   }
 
-  private Hashtable insertVerticalBarAtColIndex(Hashtable matrix,  int colIndex,String verticalBarId, int colorIndex, int pixelLength) {
-    //insert random bar at last empty spot
-    int nextIndex = getNextEmpty(matrix, colIndex);
-    if (nextIndex==-1) {
-      log(new Object[]{"safety net issue! column:", colIndex, "next index:", nextIndex});
-    }
+  //basis for inserting a cell
+  private Hashtable insertCell(
+      Hashtable matrix, //matrix
+      int rowIndex, //row to add to bar to 
+      int colIndex, //col to add to
+      int pixelIndex, //pixel to add to 
+      int colorIndex, //colorIndex
+      int pixelLength, //pixelLength
+      boolean isWarm, //warm or cool tone
+      String verticalBarId //vertical bar id
+   ){
     //we build the pixel up
     int modifier;
     if (ANIMATION_MODE.equals("up")) { //going up
@@ -233,8 +249,39 @@ class WallMatrix {
     } else {
       modifier = -1; //we're building the bar downstream (index wise)
     }
+     //log(new Object[]{"key exists?", matrix.containsKey(getIdStr(rowIndex+(pixelIndex*modifier), colIndex))});
+     matrix.put(getIdStr(rowIndex+(pixelIndex*modifier), colIndex), new MatrixCell(
+      colorIndex, 
+      pixelLength,
+      pixelIndex,
+      isWarm, 
+      verticalBarId
+      ));
+      return matrix;
+  }
+  
+  
+  private Hashtable insertVerticalBarAtColIndex(Hashtable matrix,  int colIndex,String verticalBarId, int colorIndex, int pixelLength) {
+    //insert random bar at last empty spot
+    int nextIndex = getNextEmpty(matrix, colIndex);
+   // log(new Object[]{"next index:",nextIndex});
+    if (nextIndex==-1) {
+      log(new Object[]{"safety net issue! column:", colIndex, "next index:", nextIndex});
+    }
+    
+
     for (int i =0; i<pixelLength; i++) {
-      matrix.put(getIdStr(nextIndex+(i*modifier), colIndex), new MatrixCell(colorIndex, false, verticalBarId));
+      /*
+      matrix.put(getIdStr(nextIndex+(i*modifier), colIndex), new MatrixCell(
+      colorIndex, 
+      pixelLength,
+      i,
+      false, 
+      verticalBarId
+      ));
+      */
+      //insert cell given a row + bar pixel index
+      matrix = insertCell(matrix, nextIndex, colIndex, i, colorIndex, pixelLength, false,verticalBarId);
     }
 
     return matrix;
@@ -319,21 +366,35 @@ class WallMatrix {
    }
    */
 
+  //get last bar in column
+  private int getLastBar(Hashtable matrix, int colIndex) {
+    int modifier;
+    if (ANIMATION_MODE.equals("up")){
+      modifier = -1;
+    }else{
+      modifier = 1;
+    }
+    return getNextEmpty(  matrix,  colIndex)+modifier;
+  }
+
   //getNextEmpty(matrix, colIndex): get the next row index that is empty given column index
   private int getNextEmpty(Hashtable matrix, int colIndex) {
     //nextempty depends on animation mode
     int start, end;
+    //lets get domain which can exceed 0-totalRows domain
+    int[] domain = new int[]{0,totalRows};
+    //log(new Object[]{"domain..", domain});
     if (ANIMATION_MODE.equals("up")) { //going up
-      start = 0;
-      end= totalRows;
+      start = domain[0]; //0
+      end=  domain[1]; //totalRows
       for (int i=start; i<end; i++) {
         if (!matrix.containsKey(getIdStr(i, colIndex))) {
           return i;
         }
       }
     } else { //going down
-      start = totalRows-1;
-      end= 0;
+      start = domain[1]-1; //totalRows-1
+      end= domain[0]; //0
       for (int i=start; i>=end; i--) {
         if (!matrix.containsKey(getIdStr(i, colIndex))) {
           return i;
@@ -345,6 +406,7 @@ class WallMatrix {
     //safety net
     return -1;
   }
+
 
   public boolean cellExists(String id) {
     return (currentMatrix.containsKey(id));
@@ -405,15 +467,109 @@ class WallMatrix {
     return m1;
   }
 
+  //get the row domain (based on index)
+  public int[] getRowDomain(Hashtable matrix, int colIndex){
+    int[] domain = new int[]{0,0};
+    do{
+       domain[0]--;
+    }while (matrix.containsKey((getIdStr(domain[0], colIndex))));
+     do{
+      domain[1]++;
+     } while (matrix.containsKey((getIdStr(domain[1], colIndex))));
+     domain[0]++;
+     domain[1]--;
+    
+    return domain;
+  }
+  public MatrixCell[] getColumnArray(Hashtable matrix, int colIndex){
+     int[] domain = getRowDomain(matrix, colIndex);
+     MatrixCell[] cells = new MatrixCell[domain[1]+1-domain[0]];
+     for (int rowIndex=domain[0]; rowIndex<domain[1]+1; rowIndex++){
+         cells[rowIndex-domain[0]] = currentMatrix.get(getIdStr(rowIndex, colIndex));
+     }
+     return cells;
+  }
+  
+  //shift a single array
+  public MatrixCell[] shiftArray(MatrixCell[] arr, int shiftAmount){
+    MatrixCell[] newArr = new MatrixCell[arr.length];
+   // log(new Object[]{"arr", arr,"shift amount:",shiftAmount});
+    int index = 0;
+    for (int i = shiftAmount; i < arr.length+shiftAmount; i++) { 
+        index = i;    
+        if (index>=arr.length){
+          index = index%arr.length;
+        }else if (index<0){
+          index = arr.length+index;
+        }
+         // log(new Object[]{"index:", index,"--> i-shiftAmount",(i-shiftAmount)});
+          newArr[i-shiftAmount] = arr[index];
+     }
+     //log(new Object[]{"new arr", newArr,"shift amount:",shiftAmount});
+     return newArr;
+  }
+  public void shiftColumnsAdditionalSpeed(){
+    for (int colIndex=0; colIndex<randSpeeds.length; colIndex++){ //columns
+        int amountToShift = randSpeeds[colIndex]; //could be 0 , 1 , or 2
+        //for each column..
+        //get row domain -2 to 30, 32 items..
+        int[] rowDomain = getRowDomain(currentMatrix, colIndex);
+       // log(new Object[]{"row domain is..", rowDomain, "\nrandome speeds..:",randSpeeds});
+        //if shift array back or foward 2 (this is a function)
+          int modifier = -1;
+        if (ANIMATION_MODE.equals("up")){
+          modifier=1; 
+        }
+        MatrixCell[] colArrShifted = shiftArray(getColumnArray(currentMatrix, colIndex), amountToShift*modifier); //negative or positive.. would be up ? or down
+        //loop through index and redefine..dernn
+        for (int rowIndex=rowDomain[0]; rowIndex<rowDomain[1]+1; rowIndex++){
+           currentMatrix.put(getIdStr(rowIndex, colIndex), colArrShifted[rowIndex-rowDomain[0]]); //set it dude
+        }
+    }
+  }
+
+  //when shifting bars + regenerating new "deck" we need to repair incomplete bars to be complete again..
+  public Hashtable repairIncompleteBars(Hashtable matrix){
+    //loop through each..if
+    for (int colIndex=0; colIndex<totalColumns; colIndex++){
+      //get last bar 
+      int lastRow = getLastBar(matrix, colIndex);
+      //grab cell
+      MatrixCell sampleCell = (MatrixCell)matrix.get(getIdStr(lastRow, colIndex));
+      
+      int modifier = 1;
+      if (ANIMATION_MODE.equals("up")){
+         modifier= -1; 
+      }
+      int rowIndex = lastRow+(sampleCell.pixelId*modifier);
+      int origLength = getColumnArray(matrix,colIndex).length;
+      //log(new Object[]{"colindex:",colIndex, "last bar id:", lastRow, "bar origin:", rowIndex, "last bar..",sampleCell });
+      for (int j = sampleCell.pixelId+1; j<sampleCell.pixelLength; j++){
+        //buildback up the bar
+        matrix = insertCell(matrix, rowIndex, colIndex, j, sampleCell.colorIndex, sampleCell.pixelLength, sampleCell.isWarm,sampleCell.verticalBarId);
+        log(new Object[]{"running dawg..",rowIndex, j});
+      }
+      log(new Object[]{"orig col length:", origLength , "new col length:",getColumnArray(matrix,colIndex).length });
+    }
+    
+     return matrix;
+  }
+
   //do shifting animation
   public void shift() {
     currentMatrix = popRow(currentMatrix);
     //see if we need to make another matrix "deck"
     if (!matrixIsFull(currentMatrix)) {
+       //build up incomplete bars..due to shifting..ughh.
       //transfer matrix overflow returns an array, index 0=truncatedcurrent matrix, 1=leftover portions that exceeded the frame
       Hashtable[] pieces = transferMatrixOverflow(currentMatrix);
       //now we take out truncated matrix, and make a new frame using the leftover portions as a base (creating a seamless transition)
       currentMatrix = combineMatrices(pieces[0], generateMatrix(pieces[1]));
+    }else{
+     //then shift column..cells..if up do one thing if not do another thing..overall id remains same, but matrix switches
+     //shiftColumnsAdditionalSpeed();
+     //build up incomplete bars..due to shifting..ughh.
+     //currentMatrix = repairIncompleteBars(currentMatrix);
     }
   }
 
@@ -430,8 +586,11 @@ class WallMatrix {
     //bounds represent total
     totalRows = _totalRows; //add extra to hide seam
     totalColumns = _totalColumns;
+    //get random set of numbers for amount of columns
+    randSpeeds = randIntArr(new int[]{0,1,2}, totalColumns); //additional speed 
     setSettings( _lengthRange, _popularityFactor, _catBreakdown, _cr, _crHot);
     currentMatrix = generateMatrix(new Hashtable());
+
   }
 }
 
@@ -439,12 +598,14 @@ class WallMatrix {
 
 //each cell houses a color index, warm/cool,bar id
 class MatrixCell {
-  int colorIndex;
+  int colorIndex, pixelLength, pixelId;
   String verticalBarId;
   boolean isWarm;
-  public MatrixCell(int _colorIndex, boolean _warmCool, String _verticalBarId) {
+  public MatrixCell(int _colorIndex, int _pixelLength, int _pixelId, boolean _warmCool, String _verticalBarId) {
     isWarm = _warmCool;
     colorIndex = _colorIndex;
     verticalBarId = _verticalBarId;
+    pixelId = _pixelId;
+    pixelLength = _pixelLength;
   }
 }

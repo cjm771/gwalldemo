@@ -9,6 +9,7 @@
  *
  */
 
+import java.text.SimpleDateFormat;
 import controlP5.*;
 ControlP5 cp5;
 Controller cp5TextField;
@@ -19,6 +20,7 @@ boolean buttonAInit = false;
 boolean buttonBInit = false;
 boolean buttonCInit = false;
 boolean buttonDInit = false;
+boolean buttonPlayPauseInit = false;
 boolean buttonUp = true;
 
 String textValue = "Seattle";
@@ -39,6 +41,7 @@ class ControlFrame extends PApplet {
   PApplet parent;
   ControlP5 cp5;
   PShape US;
+  boolean dateError = false;
   float mapScale = 0.3;
   JSONArray mapData = new JSONArray();
 
@@ -64,10 +67,18 @@ class ControlFrame extends PApplet {
   public void date(String theText) {
     // automatically receives results from controller input
 
-    searchDate = theText;
-    reformattedDate = getReformattedDate(searchDate);
-    println("a textfield event for controller 'input' : "+theText+"--->"+reformattedDate);
-    parent.thread("doQueries");
+     Textfield dateField = cp5.get(Textfield.class, "date");
+     //_log(new Object[]{"datefield: ", dateField.toString()});
+    String regex = "^(?:0[1-9]|1[0-2])/[0-3][0-9]/[1-9][0-9]{3}$";
+    if (theText.matches(regex)){
+      dateError = false;
+      searchDate = theText;
+      reformattedDate = getReformattedDate(searchDate);
+      println("a textfield event for controller 'input' : "+theText+"--->"+reformattedDate);
+      parent.thread("doQueries");
+    }else{
+      dateError = true;
+    }
   }
 
   public String getReformattedDate(String date) {
@@ -82,6 +93,22 @@ class ControlFrame extends PApplet {
       c  = color(javaColor.getRed(), javaColor.getGreen(), javaColor.getBlue());
     return c;
   }
+  
+    // button controller with name colorA
+  public void playPause(int theValue) {
+    if (buttonPlayPauseInit) {
+      animationIsPaused = !animationIsPaused;
+      Button btn = cp5.get(Button.class, "playPause");
+      if (animationIsPaused){
+        btn.setLabel("Play");
+      }else{
+        btn.setLabel("Pause");
+      }
+    } else {
+      buttonPlayPauseInit = true;
+    }
+  }
+
 
   // button controller with name colorA
   public void colorA(int theValue) {
@@ -94,6 +121,7 @@ class ControlFrame extends PApplet {
       buttonAInit = true;
     }
   }
+
 
   // button controller with name colorA
   public void colorB(int theValue) {
@@ -207,6 +235,16 @@ class ControlFrame extends PApplet {
       .setColorBackground(mainColors[3])
       .setPosition(95, 260)
       .setSize(25, 25)
+      ;
+
+    // create a new button with name 'playPause'
+    cp5.addButton("playPause")
+      .setValue(0)
+      .setLabelVisible(true)
+      .setLabel("Pause")
+      .setColorBackground(color(100))
+      .setPosition(width-70, 40)
+      .setSize(50, 20)
       ;
 
     //data path might not work in jar?! check
@@ -386,7 +424,8 @@ class ControlFrame extends PApplet {
          }else if (newMonth>12){
            newMonth=newMonth%12;
            newYear++;
-         }else if (newMonth<10){
+         }
+         if (newMonth<10){
            zeroPrefix = "0";
          }
          String newDate = zeroPrefix+newMonth+"/"+searchDate.split("/")[1]+"/"+newYear;
@@ -401,6 +440,37 @@ class ControlFrame extends PApplet {
   
   public void mouseReleased(){
     buttonUp = true;
+  }
+  String mySubString(String myString, int start, int length) {
+    return myString.substring(start, Math.min(start + length, myString.length()));
+}
+
+  public void drawHotTopicsList(int x, int y){
+    String[] hTopics = gt.getHotTopics();
+    int maxAmount = 5;
+    int spacing = 15;
+    textAlign(LEFT);
+    textSize(12);
+     fill(255);
+     text("Hotopics", x, y);
+    textSize(10);
+    String alteredText = "";
+    int maxTextLength = 22;
+    fill(200);
+     stroke(50);
+     line(x-20, y-10, x-20, y+100);
+     noStroke();
+    for (int i =0; i<hTopics.length;  i++){;
+      if (i<maxAmount){
+        if (hTopics[i].length()>maxTextLength)
+          alteredText = mySubString(hTopics[i], 0,maxTextLength)+"...";
+        else
+          alteredText = hTopics[i];
+        text(alteredText, x, y+5+(((i+1)*spacing)));
+      }
+    }
+     textAlign(LEFT);
+    
   }
 
   public void drawUSMap(int x, int y) {
@@ -486,6 +556,11 @@ class ControlFrame extends PApplet {
       cp5.get(Textfield.class, "date").setColor(160);
       stroke(160);
     }
+    if (dateError){
+      cp5.get(Textfield.class, "date").setColor(color(255,0,0));
+      stroke(color(255,0,0));
+    }
+    //date stroke
     line(20, 210, 220, 210);
 
     if (loading==false) {
@@ -494,6 +569,7 @@ class ControlFrame extends PApplet {
       drawUSMap(40, height-220 );
       drawPopChart(40, height-280, width-130, 60);
       drawCategoryChart(80, height-420, 100, 20);
+      drawHotTopicsList(width-150, height-460);
       drawLogoAndVersion();
     }
   }

@@ -10,26 +10,37 @@ GTrends
  */
 
 import java.util.Hashtable;
+import java.util.Arrays;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.io.UnsupportedEncodingException;
 class GTrends{
   
     private String APIKEY = "[FILL IN APIKEY HERE]";
-    private String ENDPOINT_PREFIX = "https://www.googleapis.com/trends/v1beta/";
+    private String ENDPOINT_PREFIX = "https://www.googleapis.com/trends/v1beta/"; //standard gapi
+    private String RELATEDTOPICS_ENDPOINT ="https://gtrends-api-rpqxouujom.now.sh"; //related topics api, if dies replace with apitopics server..server/apitopics
     JSONObject jsonResp;
+     boolean waitingForResults = true;
      Hashtable<String, String> CATEGORIES= new Hashtable();
     JSONArray mapData = new JSONArray(); //raw map data (last query)
     Hashtable<String, Country> countries = new Hashtable(); //refined country data hashtables key is country code (last query)
+    //popularity metrics
+    int[] popularityClamp = new int[]{60,100}; //clamp to determine when red stuff starts happening..so 60-100 would mean blue until 60%. than starts to get red
     JSONArray popularityData = new JSONArray(); //last query 
+    int currentDateValue = 0; //popularity number 0-100 (actual number)
+    int clampedCurrentDateValue = 0; //clamped percentage (blue/red tone);
+    int currentDateIndex = 0; //date index of month..
+    //hot topics api metrics
+    ArrayList<String> hotTopics = new ArrayList(); //store latest topcs based on month
+    String[] hotTopicsBlacklist = new String[]{"Washington", "Seattle", "The Seattle Times", "The Times"}; //ignore the generic terms people be searchin.
+    //country regional metrics
     float countryValue = 0; // value from 2 to 8. influences countryBarRange
     int countriesInvolved = 0;
     int[]  countryClamp = new int[]{2,8}; //clamp on calculated value..normally country value = 200-800
-    float[]  countryPopRange = new float[]{100,0}; //min max domain of country popularity..not used?
-    int[] countryBarRange = new int[]{4,10};  //store bar lengths here.. WE USE THIS!
-    boolean waitingForResults = true;
-    int currentDateValue = 0;
-    int currentDateIndex = 0;
+    float[]  countryPopRange = new float[]{100,0}; //min max domain of country popularity..set by query..could be 100-20 or 80-10...not used?
+    int[] countryBarRange = new int[]{4,10};  //store bar lengths here..set by query WE USE THIS!
+   
+
     //make sure these are all true before executing initial matrix
     int initPopQuery = 0;
     int initCatQuery = 0;
@@ -65,11 +76,16 @@ class GTrends{
         }
       }
       countryValue = total;
+      
+      log(new Object[]{"orig country value:", countryValue});
       countryValue = floor(max(countryClamp[0]*100, min(countryClamp[1]*100, countryValue))/100); //we get a number from 2-8
+      log(new Object[]{"new country value (2-8):", countryValue});
       //reverse numbers to get smaller bars for higher number
       int reverseCountryValue = (int)((countryClamp[0]+countryClamp[1])-countryValue);
       //bars for 8-->4 to 10, bars for 2 --> 1 --> 3
-      countryBarRange = new int[]{ceil(reverseCountryValue/1.25), ceil(reverseCountryValue*2)};
+      
+      countryBarRange = new int[]{ceil(reverseCountryValue*1.25), ceil(reverseCountryValue*2.25)};
+      log(new Object[]{"country bar range:", countryBarRange});
       return total;
    }
    
@@ -100,20 +116,29 @@ class GTrends{
      return output;
   }
 
-  //generic query to google server
+  //generic query to specified server
   //ex.  "graph", {terms: "seattle", restrictions.geo: "blah"});
    public JSONObject query(String endpoint_suffix, Hashtable params){
        String paramString = "";
+       String endpointServer = ENDPOINT_PREFIX+endpoint_suffix; //default google server..supply endpointServer in params hashtable to override...: )
        Set<String> keys = params.keySet();
        int count = 0;
         for (String key: keys){
+        //if this is a special parameter ie endpoint, swapout
+        if (key=="endpointServer"){
+          endpointServer = (String)params.get(key);
+        }else{
+          //if not first param use the &
           if (count!=0){
              paramString += "&";
           }
+          
           paramString += key+"="+URLEncode(params.get(key).toString());
           count++;
-        }
-      String url = ENDPOINT_PREFIX+endpoint_suffix+"?"+paramString+"&key="+APIKEY;
+          }
+      }
+        
+      String url = endpointServer+"?"+paramString+"&key="+APIKEY;
       //log(new Object[]{"final url to query:", url});
      try{
        return success(loadJSONObject(url));
@@ -121,7 +146,7 @@ class GTrends{
          return error(e.toString());
      }
    }
-  
+   
   //we got data, throw the result up
   public JSONObject success(JSONObject obj){
     JSONObject _success = new JSONObject();
@@ -198,6 +223,8 @@ class GTrends{
           //store in our variables
           if (setMainData==true){
             currentDateValue = popularityData.getJSONObject(key).getInt("value");
+            //clamp
+            clampedCurrentDateValue = (int)map(min(max(currentDateValue, popularityClamp[0]), popularityClamp[1]),popularityClamp[0], popularityClamp[1],0,100); //clamp to new range...than get new breakdown based on that
             currentDateIndex = key;
           }
           return popularityData.getJSONObject(key).getInt("value");
@@ -235,7 +262,6 @@ class GTrends{
   
   public String generateMultipleTermsString(String[] terms){
     String finalStr = "";
-    log(new Object[]{"terms arr:", terms});
     for (int i=0; i<terms.length; i++){
       if (i==0){
         finalStr+=URLEncode(terms[i]);
@@ -270,7 +296,6 @@ class GTrends{
 
        
       }
-      log(new Object[]{"terms string:",  generateMultipleTermsString(termsArr), "\ncat size:", results.getJSONObject("data").getJSONArray("lines").size(), "\ncat breakdown: ", catBreakdown});
       categoryBreakdown = catBreakdown;
       return catBreakdown;
   }
@@ -384,6 +409,38 @@ class GTrends{
             put("restrictions.endDate", endDate);
           }
         });
+    }
+    
+    //get top topics from google, while avoiding blacklisted (boring) terms
+    public  JSONObject queryTopTopics(final String term,  final String startDate,final String endDate){
+      JSONObject results =  query("topTopics", new Hashtable<String, Object>(){
+          { 
+            put("endpointServer", RELATEDTOPICS_ENDPOINT); //we use a different endpoint here
+            put("keyword", term);
+            put("startTime", startDate);
+            put("endTime", endDate);
+          }
+        });
+        if (results.getString("status")=="success"){
+          //store latest in instance
+            hotTopics.clear();
+            JSONArray unfilteredTopics = results.getJSONObject("data").getJSONArray("data");
+            for (int i=0; i<unfilteredTopics.size(); i++){
+                JSONObject keywordObj = unfilteredTopics.getJSONObject(i);
+                String title = keywordObj.getString("title");
+                if (Arrays.asList(hotTopicsBlacklist).indexOf(title)==-1){
+                  //if not in there add to array list
+                  hotTopics.add(title);
+                }
+            }
+        }
+        return results;
+        
+    }
+    
+    //return hot topics as an array (its stored as an arraylist)
+    public String[] getHotTopics(){
+     return hotTopics.toArray(new String[hotTopics.size()]);
     }
   
      public JSONObject queryPopularity(final String term, final int category, final String regionRestriction, final String startDate,final String endDate, final String specificDay){
