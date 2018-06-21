@@ -21,18 +21,21 @@ boolean buttonBInit = false;
 boolean buttonCInit = false;
 boolean buttonDInit = false;
 boolean buttonPlayPauseInit = false;
+boolean buttonSaveStillInit = false;
+boolean buttonresetZoomInit= false;
 boolean buttonUp = true;
 
 String textValue = "Seattle";
-String searchDate = "01/01/2018";
-String reformattedDate= "2018-01";
+String searchDate = "02/01/2014";
+String reformattedDate= "2014-02";
 int[] mainColors = new int[]{
   color(66, 134, 245), 
   color(52, 168, 83), 
   color(237, 67, 52), 
-  color(248, 186, 5)
+  color(255, 240, 68) //248,186, 5--> changing for more vibrance
 };
 color[] warmColorRange, coolColorRange; //cache color ranges
+
 
 
 class ControlFrame extends PApplet {
@@ -108,7 +111,32 @@ class ControlFrame extends PApplet {
       buttonPlayPauseInit = true;
     }
   }
+  
 
+  
+  // button controller with name colorA
+  public void saveStill(int theValue) {
+    if (buttonSaveStillInit) {
+        //pause animation
+        origAnimationState = animationIsPaused;
+        animationIsPaused = true;
+        Button btn = cp5.get(Button.class, "saveStill");
+        doFolderRoutine();
+      } else {
+      buttonSaveStillInit = true;
+    }
+  }
+  
+  // button controller with name colorA
+  public void resetZoom(int theValue) {
+    if (buttonresetZoomInit) {
+        _resetZoom();
+      } else {
+      buttonresetZoomInit = true;
+    }
+  }
+  
+  
 
   // button controller with name colorA
   public void colorA(int theValue) {
@@ -246,7 +274,27 @@ class ControlFrame extends PApplet {
       .setPosition(width-70, 40)
       .setSize(50, 20)
       ;
+      
+    
+    // create a new button with name 'playPause'
+    cp5.addButton("saveStill")
+      .setValue(0)
+      .setLabelVisible(true)
+      .setLabel("Save PDF")
+      .setColorBackground(color(100))
+      .setPosition(width-70, 70)
+      .setSize(50, 20)
+      ;
 
+    // create a new button with name 'playPause'
+    cp5.addButton("resetZoom")
+      .setValue(0)
+      .setLabelVisible(true)
+      .setLabel("Reset Zoom")
+      .setColorBackground(color(100))
+      .setPosition(width-70, 100)
+      .setSize(50, 20)
+      ;
     //data path might not work in jar?! check
 
     worldMap.scale(mapScale, mapScale);
@@ -362,7 +410,15 @@ class ControlFrame extends PApplet {
       ellipse(currentDayVertex[0], currentDayVertex[1], 10, 10);
       textSize(10);
       fill(255);
+      //percentage
       text(gt.currentDateValue+"%", currentDayVertex[0], currentDayVertex[1]-10);
+      //green or red for delta
+      String prefix = (gt.delta<0) ? "\u25BC" : (gt.delta==0) ? "" : "\u25B2";
+      fill(((gt.delta<0) ? color(255,0,0) : (gt.delta==0) ? color(250,250,250) : color(0,255,0)));
+      textAlign(RIGHT);
+      text(prefix+gt.delta+"%", x+w, y-h);
+      textAlign(LEFT);
+      fill(255);
       checkGraphMapHover(x, y, w, h, dateNames, nums);
     }
   }
@@ -452,7 +508,7 @@ class ControlFrame extends PApplet {
     textAlign(LEFT);
     textSize(12);
      fill(255);
-     text("Hotopics", x, y);
+     text("Hot Topics", x, y);
     textSize(10);
     String alteredText = "";
     int maxTextLength = 22;
@@ -525,52 +581,63 @@ class ControlFrame extends PApplet {
 
 
   void draw() {
-    background(0);
-    textFont(font);
-    textSize(16);
-    fill(100);
-    text("Current Keyword: ", 20, 25);
-    text("Enter keyword (+ Hit Enter):", 20, 100);
-    text("Enter date (+ Hit Enter):", 20, 170);
-    text("Color Range:", 20, 240);
-    fill(255);
-    textSize(32);
-    textAlign(LEFT);
-    text(textValue, 20, 60);
-    textSize(20);
-    textAlign(RIGHT);
-    text(searchDate, width-20, 30);
-    textAlign(LEFT);
-    if (cp5.get(Textfield.class, "input").isFocus()) {
-      cp5.get(Textfield.class, "input").setColor(255);
-      stroke(255);
-    } else {
-      cp5.get(Textfield.class, "input").setColor(160);
-      stroke(160);
+    if (exportMode==2){
+      beginRecord(PDF, exportFolder+"/"+ts+"-controlFrame.pdf");
+     exportMode = 3;
     }
-    line(20, 140, 220, 140);
-    if (cp5.get(Textfield.class, "date").isFocus()) {
-      cp5.get(Textfield.class, "date").setColor(255);
-      stroke(255);
-    } else {
-      cp5.get(Textfield.class, "date").setColor(160);
-      stroke(160);
-    }
-    if (dateError){
-      cp5.get(Textfield.class, "date").setColor(color(255,0,0));
-      stroke(color(255,0,0));
-    }
-    //date stroke
-    line(20, 210, 220, 210);
-
-    if (loading==false) {
-      stroke(60);
-      line(20, height-490, width-40, height-490);    
-      drawUSMap(40, height-220 );
-      drawPopChart(40, height-280, width-130, 60);
-      drawCategoryChart(80, height-420, 100, 20);
-      drawHotTopicsList(width-150, height-460);
-      drawLogoAndVersion();
+    
+    if (exportMode==3 || exportMode==4){ //not saving or exporting control frame
+      background(0);
+      textFont(font);
+      textSize(16);
+      fill(100);
+      text("Current Keyword: ", 20, 25);
+      text("Enter keyword (+ Hit Enter):", 20, 100);
+      text("Enter date (+ Hit Enter):", 20, 170);
+      text("Color Range:", 20, 240);
+      fill(255);
+      textSize(32);
+      textAlign(LEFT);
+      text(textValue, 20, 60);
+      textSize(20);
+      textAlign(RIGHT);
+      text(searchDate, width-20, 30);
+      textAlign(LEFT);
+      if (cp5.get(Textfield.class, "input").isFocus()) {
+        cp5.get(Textfield.class, "input").setColor(255);
+        stroke(255);
+      } else {
+        cp5.get(Textfield.class, "input").setColor(160);
+        stroke(160);
+      }
+      line(20, 140, 220, 140);
+      if (cp5.get(Textfield.class, "date").isFocus()) {
+        cp5.get(Textfield.class, "date").setColor(255);
+        stroke(255);
+      } else {
+        cp5.get(Textfield.class, "date").setColor(160);
+        stroke(160);
+      }
+      if (dateError){
+        cp5.get(Textfield.class, "date").setColor(color(255,0,0));
+        stroke(color(255,0,0));
+      }
+      //date stroke
+      line(20, 210, 220, 210);
+  
+      if (loading==false) {
+        stroke(60);
+        line(20, height-490, width-40, height-490);    
+        drawUSMap(40, height-220 );
+        drawPopChart(40, height-280, width-130, 60);
+        drawCategoryChart(80, height-420, 100, 20);
+        drawHotTopicsList(width-150, height-460);
+        drawLogoAndVersion();
+      }
+    } 
+    if (exportMode==3){ //we're in export mode and need to finish
+      endRecord();
+      exportMode = 4;
     }
   }
 }

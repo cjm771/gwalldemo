@@ -16,9 +16,10 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.Hashtable;
+import processing.pdf.*;
 import com.google.gson.Gson;
 
-String VERSION = "0.38";
+String VERSION = "0.40";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;
@@ -28,6 +29,10 @@ PShape worldMap;
 PFont font;
 Gson jsonParser = new Gson();
 boolean animationIsPaused = false;
+boolean origAnimationState = false; //used as a store for where its at
+String exportFolder = "C:/"; //save folder to export to
+int exportMode = 4; //0=start to save, 1=saving has begun, 2=main ended, 3=start control frame, 4=done not saving..
+String ts = ""; //current timestamp
 PShader blur;
 Bounds mainBounds;
 Hashtable <String, Bounds> Rects = new Hashtable();
@@ -52,7 +57,10 @@ SETUP
 void setup() {
   //15 frames 
    frameRate(15);
-   smooth();
+   smooth(4);
+   //to avoid pdf erros...
+   PFont font = createFont("LSANS.TTF",32);
+   textFont(font);
    //launch bg images + control panel
    thread("loadImagesAndControlPanel");
   
@@ -66,16 +74,16 @@ void setup() {
 
 }
 
-  public String getAPIKey(){
-         //load apikey offsite
-        try{
-        String[] lines = loadStrings(dataPath("gapi.key"));
-        return lines[0];
-        }catch(Exception e){
-          log(new Object[]{"Error! ", e});
-        }
-        return "";
-   }
+public String getAPIKey(){
+       //load apikey offsite
+      try{
+      String[] lines = loadStrings(dataPath("gapi.key"));
+      return lines[0];
+      }catch(Exception e){
+        log(new Object[]{"Error! ", e});
+      }
+      return "";
+ }
 
 public void loadImagesAndControlPanel(){
   //run seperate window for controls
@@ -98,6 +106,26 @@ public void loadImagesAndControlPanel(){
    fg.filter(INVERT);
    loading = false;
 }
+
+  //folder browser..unfortunately have to do outside of controlframe
+  public void doFolderRoutine(){
+      selectFolder("Select a folder to export to:", "folderSelected");
+  }
+
+  //folder selected callback (used by controlframe)
+    public void folderSelected(File selection) {
+    if (selection == null) {
+      println("Window was closed or the user hit cancel.");
+    } else {
+      //save export folder...
+      exportFolder =  selection.getAbsolutePath();
+      //toggle export mode
+      exportMode = 0; //will save next frame.
+      println("User selected " + selection.getAbsolutePath());
+    }
+    animationIsPaused = origAnimationState;
+  }
+
 /***********
 QUERIES ROUTINE 
 ***********/
@@ -117,8 +145,11 @@ public void popQuery(){
       log(new Object[]{googleResp.getString("status"), " when querying trends api: ", googleResp.getString("message")});
     }
     //toggle as initalized
-     if (gt.initPopQuery==0)
+     if (gt.initPopQuery==0){
          gt.initPopQuery=1;
+     }else if (gt.initPopQuery==3){
+       gt.initPopQuery=2;
+     }
 }
 
 //perform category query
@@ -126,8 +157,11 @@ public void catQuery(){
        //then do category breakdown
        gt.getCategoryBreakdown(textValue, "", reformattedDate,reformattedDate, searchDate);
        //toggle as initalized
-       if (gt.initCatQuery==0)
+       if (gt.initCatQuery==0){
          gt.initCatQuery=1;
+       }else if  (gt.initCatQuery==3){
+        gt.initCatQuery=2;
+     }
 }
 
 //perform hot topics query
@@ -153,8 +187,11 @@ public void regionQuery(){
       log(new Object[]{regionDataResp.getString("status"), " when querying trends api: ", regionDataResp.getString("message")});
     }
     //toggle as initalized
-     if (gt.initRegionQuery==0)
+     if (gt.initRegionQuery==0){
          gt.initRegionQuery=1;
+     }else if(gt.initRegionQuery==3){
+        gt.initRegionQuery=2;
+     }
 
 }
 
@@ -165,6 +202,7 @@ public void doQueries(){
     thread("regionQuery");
     thread("catQuery");
     thread("topicQuery");
+
 
 }
 
@@ -260,7 +298,7 @@ void drawRectangles(){
      rect.setBounds(mainBounds);
      //draw it if it exists          
      if (matrix.cellExists(key)){
-       
+       rect.drawGlow(matrix.getCell(key));
        rect.drawRect(matrix.getCell(key));
      }else{
        if (frameCount==1)
@@ -311,46 +349,73 @@ public void drawLoadingRoutine(){
     text(loadingText,width/2-60, height/2);
 }
  
+ public String getTimestamp(){
+     int s = second();  // Values from 0 - 59
+    int m = minute();  // Values from 0 - 59
+    int h = hour();    // Values from 0 - 23
+    return h+"-"+m+"-"+s;
+ }
 /***********
 DRAW FUNCTIONALITY
 ***********/
 
 
 void draw() {
-  if (loading){
-    background(0);
-    drawLoadingRoutine();
-  }else if (gt.initPopQuery==0 || gt.initCatQuery==0 || gt.initRegionQuery==0){
-  //still not ready..
-     background(0);
-    drawLoadingRoutine();
-  }else if (gt.initPopQuery==1 || gt.initCatQuery==1 || gt.initRegionQuery==1){
-    //ready to init matrix..
-    initRectangleData();
-    gt.initPopQuery=2; 
-    gt.initCatQuery=2;
-    gt.initRegionQuery=2;
-  }else{
-    translate(width/2, height/2);
-    scale(scale);
-    translate(-xPan, -yPan);
-    
-    background(0);
-    //do shifting animation
-    if (!animationIsPaused){
-      matrix.shift();
-    }
-    
-    //listen to server
-    gwc.readToConsole();
-    
-    //draw bg
-    tint(255,150);
-    drawBackgroundImage(bg);
-    drawRectangles();
-    tint(255,100);
-    drawBackgroundImage(fg);
+  //check if we need to do an export routine
+  if (exportMode==0){
+
+   log(new Object[]{"saving to.."+exportFolder});
+    ts = getTimestamp();
+   beginRecord(PDF, exportFolder+"/"+ts+"-main.pdf");
+   win.beginRecord(PDF, exportFolder+"/"+ts+"-controlFrame.pdf");
+   exportMode = 1; //start export
   }
+  if (exportMode==1 || exportMode==4){ //starting save or typical routine not exporting...
+    if (loading){
+      background(0);
+      drawLoadingRoutine();
+    }else if (gt.initPopQuery==0 || gt.initCatQuery==0 || gt.initRegionQuery==0){
+    //still not ready..
+       background(0);
+      drawLoadingRoutine();
+    }else if (gt.initPopQuery==1 || gt.initCatQuery==1 || gt.initRegionQuery==1){
+      //ready to init matrix..
+      initRectangleData();
+      gt.initPopQuery=3; 
+      gt.initCatQuery=3;
+      gt.initRegionQuery=3;
+    }else if (gt.initPopQuery==2 || gt.initCatQuery==2 || gt.initRegionQuery==2){
+      log(new Object[]{"recolorizing!!"});
+      matrix.currentMatrix = matrix.reColorizeMatrix(matrix.currentMatrix);
+      gt.initPopQuery=3; 
+      gt.initCatQuery=3;
+      gt.initRegionQuery=3;
+    }else{
+        translate(width/2, height/2);
+        scale(scale);
+        translate(-xPan, -yPan);
+        background(0);
+        //do shifting animation
+        if (!animationIsPaused){
+          matrix.shift();
+        }
+      
+      //listen to server
+      gwc.readToConsole();
+      
+      //draw bg
+      tint(255,150);
+      drawBackgroundImage(bg);
+      drawRectangles();
+      tint(255,100);
+      drawBackgroundImage(fg); //<>//
+    }
+  }
+  if (exportMode==1){ //check if we need to do end export routine   
+      endRecord();
+      exportMode = 2; //set to start the control frame export
+    }
+
 }
 
 /*********
@@ -378,38 +443,72 @@ class Bounds {
   public float getHeight(){
     return abs(brY-tlY);
   }
-  public color brightenColor(color c, int amount){
+  
+  //normalize color(brightness=100)
+  public color normalize(color c){
+      colorMode(HSB, 255);
+      float v = brightness(c);
+      c = color(hue(c), saturation(c), 100);
+      colorMode(RGB, 255);
+      return c;
+  }
+  
+  //brighten color depending on percentage
+  public color brightenColor(color c, float amount){
+    //normalize color
+    c = normalize(c);
     colorMode(HSB, 255);
     float v = brightness(c);
-    c = color(hue(c), saturation(c), min(255, v+amount));
+    c = color(hue(c), saturation(c), min(255, round(amount*255)));
     colorMode(RGB, 255);
     return c;
   }
-  public void drawRect(MatrixCell cell){
-   
-    noFill();
-    color c;
+  
+  
+  public void renderRect(){
+     rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
+  }
+  
+  //get color
+  public color getColor(MatrixCell cell){
+   color c;
     if (cell.isWarm){
       c = warmColorRange[cell.colorIndex];
     }else{
       c = coolColorRange[cell.colorIndex];
     }
-     stroke(brightenColor(c,20),4);
-    strokeWeight(16);
-    rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
-    stroke(brightenColor(c,50),15);
-    strokeWeight(9);
-    rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
-    stroke(brightenColor(c,150),40);
-    strokeWeight(4);
-    rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
+    return c;
+    
+  }
+  
+  //draws glow
+  public void drawGlow(MatrixCell cell){
+    
+    noFill();
+    float[] brightness = new float[]{1,1,1}; //original 1,1,1
+    int[] weights = new int[]{4,9,16}; //original 4,9,16
+    float[] alpha = new float[]{0.15,0.05,0.01}; //original 0.15,0.05,.01
+    color c = getColor(cell);
+    stroke(brightenColor(c,brightness[2]),map(alpha[2], 0,1,0,255));
+    strokeWeight(weights[2]);
+    renderRect();
+    stroke(brightenColor(c,brightness[1]),map(alpha[1], 0,1,0,255));
+    strokeWeight(weights[1]);
+    renderRect();
+    stroke(brightenColor(c,brightness[0]),map(alpha[0], 0,1,0,255));
+    strokeWeight(weights[0]);
+    renderRect();
+  }
+  
+  //draws cell
+  public void drawRect(MatrixCell cell){
+    color c = getColor(cell);
     noStroke();
-    fill(brightenColor(c,60));
-    rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
+    fill(brightenColor(c,map(cell.pixelId, 0, cell.pixelLength, 1,.9)));
+    renderRect();
     fill(255);
-    textSize(2);
-    //text(cell.pixelLength, getCenter()[0]*xRatio, getCenter()[1]*xRatio*-1);
-
+    //textSize(.45); //this causes weird errors..but shouldnet need this its for debugging.
+    //text(cell.verticalBarId, getCenter()[0]*xRatio, getCenter()[1]*xRatio*-1);
   }
   public Bounds(float _tlX, float _tlY, float _brX, float _brY) {
     xRatio = 1;

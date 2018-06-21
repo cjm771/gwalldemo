@@ -27,7 +27,9 @@ class GTrends{
     //popularity metrics
     int[] popularityClamp = new int[]{60,100}; //clamp to determine when red stuff starts happening..so 60-100 would mean blue until 60%. than starts to get red
     JSONArray popularityData = new JSONArray(); //last query 
+    int delta = 0; //delta from popularity of day before to popularity of today .. could be -30 or +10
     int currentDateValue = 0; //popularity number 0-100 (actual number)
+    int prevDateValue = 0; //popularity numer 0-100 (of previous day)
     int clampedCurrentDateValue = 0; //clamped percentage (blue/red tone);
     int currentDateIndex = 0; //date index of month..
     //hot topics api metrics
@@ -90,11 +92,13 @@ class GTrends{
    }
    
    public void loadCategories(){
-     CATEGORIES.put("Sports","Sports"); //Sports
-     CATEGORIES.put("Business","Business"); //Business
-     CATEGORIES.put("Arts","Arts"); //Arts
-     CATEGORIES.put("Real Estate","Housing"); //Real estate
-     CATEGORIES.put("Social", "Police"); //politics + social
+     CATEGORIES.put("1_Sports","Sports"); //Sports_1
+     CATEGORIES.put("3_Social", "Police"); //politics + social_3
+     CATEGORIES.put("5_Real Estate","Housing"); //Real estate_5
+      
+     CATEGORIES.put("2_Business","Business"); //Business_2
+     CATEGORIES.put("4_Arts","Arts"); //Arts_4
+    
    }
    
    String URLEncode(String string){
@@ -221,8 +225,12 @@ class GTrends{
       for (int key=0;  key<popularityData.size(); key++){
         if (popularityData.getJSONObject(key).getString("date").equals(toFind)){
           //store in our variables
+          
           if (setMainData==true){
             currentDateValue = popularityData.getJSONObject(key).getInt("value");
+            prevDateValue = (key-1>=0) ? popularityData.getJSONObject(key-1).getInt("value") : currentDateValue; //well..we'll have to query api again if its the 1st date of every month..so just return no delta for now
+            delta = currentDateValue-prevDateValue;
+            log(new Object[]{"delta bruh:", delta});
             //clamp
             clampedCurrentDateValue = (int)map(min(max(currentDateValue, popularityClamp[0]), popularityClamp[1]),popularityClamp[0], popularityClamp[1],0,100); //clamp to new range...than get new breakdown based on that
             currentDateIndex = key;
