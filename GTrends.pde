@@ -20,8 +20,9 @@ class GTrends{
     private String ENDPOINT_PREFIX = "https://www.googleapis.com/trends/v1beta/"; //standard gapi
     private String RELATEDTOPICS_ENDPOINT ="https://gtrends-api-rpqxouujom.now.sh"; //related topics api, if dies replace with apitopics server..server/apitopics
     JSONObject jsonResp;
-     boolean waitingForResults = true;
-     Hashtable<String, String> CATEGORIES= new Hashtable();
+    boolean waitingForResults = true;
+    Hashtable<String, String> CATEGORIES= new Hashtable();
+    String[] categories_sortList = new String[]{"Sports", "Business", "Social", "Arts", "Real Estate"};
     JSONArray mapData = new JSONArray(); //raw map data (last query)
     Hashtable<String, Country> countries = new Hashtable(); //refined country data hashtables key is country code (last query)
     //popularity metrics
@@ -31,7 +32,6 @@ class GTrends{
     int currentDateValue = 0; //popularity number 0-100 (actual number)
     int prevDateValue = 0; //popularity numer 0-100 (of previous day)
     int clampedCurrentDateValue = 0; //clamped percentage (blue/red tone);
-    int currentDateIndex = 0; //date index of month..
     //hot topics api metrics
     ArrayList<String> hotTopics = new ArrayList(); //store latest topcs based on month
     String[] hotTopicsBlacklist = new String[]{"Washington", "Seattle", "The Seattle Times", "The Times"}; //ignore the generic terms people be searchin.
@@ -41,7 +41,7 @@ class GTrends{
     int[]  countryClamp = new int[]{2,8}; //clamp on calculated value..normally country value = 200-800
     float[]  countryPopRange = new float[]{100,0}; //min max domain of country popularity..set by query..could be 100-20 or 80-10...not used?
     int[] countryBarRange = new int[]{4,10};  //store bar lengths here..set by query WE USE THIS!
-   
+     
 
     //make sure these are all true before executing initial matrix
     int initPopQuery = 0;
@@ -79,26 +79,36 @@ class GTrends{
       }
       countryValue = total;
       
-      log(new Object[]{"orig country value:", countryValue});
       countryValue = floor(max(countryClamp[0]*100, min(countryClamp[1]*100, countryValue))/100); //we get a number from 2-8
-      log(new Object[]{"new country value (2-8):", countryValue});
       //reverse numbers to get smaller bars for higher number
       int reverseCountryValue = (int)((countryClamp[0]+countryClamp[1])-countryValue);
       //bars for 8-->4 to 10, bars for 2 --> 1 --> 3
-      
       countryBarRange = new int[]{ceil(reverseCountryValue*1.25), ceil(reverseCountryValue*2.25)};
-      log(new Object[]{"country bar range:", countryBarRange});
       return total;
    }
    
    public void loadCategories(){
-     CATEGORIES.put("1_Sports","Sports"); //Sports_1
-     CATEGORIES.put("3_Social", "Police"); //politics + social_3
-     CATEGORIES.put("5_Real Estate","Housing"); //Real estate_5
-      
-     CATEGORIES.put("2_Business","Business"); //Business_2
-     CATEGORIES.put("4_Arts","Arts"); //Arts_4
-    
+  
+     CATEGORIES.put("Social", "Police"); //politics + social_3
+     CATEGORIES.put("Real Estate","Housing"); //Real estate_5
+     CATEGORIES.put("Business","Business"); //Business_2
+     CATEGORIES.put("Sports","Sports"); //Sports_1
+     CATEGORIES.put("Arts","Arts"); //Arts_4
+ 
+   }
+   
+   //get previous month..like if 2014-02 .. turn into 2014-01, 2013-01 --> 2012-12
+   public String previousMonth(String dateString){
+     String[] datePieces = dateString.split("-");
+     int year = int(datePieces[0]);
+     int month = int(datePieces[1]);
+     //resolve too far back..
+     month--;
+     if (month==0){
+     month = 12;
+     year--;
+     }
+     return year+"-"+((month<9) ? "0"+month : month);
    }
    
    String URLEncode(String string){
@@ -119,6 +129,8 @@ class GTrends{
      }
      return output;
   }
+  
+  
 
   //generic query to specified server
   //ex.  "graph", {terms: "seattle", restrictions.geo: "blah"});
@@ -228,12 +240,10 @@ class GTrends{
           
           if (setMainData==true){
             currentDateValue = popularityData.getJSONObject(key).getInt("value");
-            prevDateValue = (key-1>=0) ? popularityData.getJSONObject(key-1).getInt("value") : currentDateValue; //well..we'll have to query api again if its the 1st date of every month..so just return no delta for now
+            prevDateValue = (key-1>=0) ? popularityData.getJSONObject(key-1).getInt("value") : currentDateValue;
             delta = currentDateValue-prevDateValue;
-            log(new Object[]{"delta bruh:", delta});
             //clamp
             clampedCurrentDateValue = (int)map(min(max(currentDateValue, popularityClamp[0]), popularityClamp[1]),popularityClamp[0], popularityClamp[1],0,100); //clamp to new range...than get new breakdown based on that
-            currentDateIndex = key;
           }
           return popularityData.getJSONObject(key).getInt("value");
         }
@@ -242,29 +252,66 @@ class GTrends{
     return -1;
   }
   
-  //get all values just as a list.
-  public int[] getDateValuesAsList(){
-    int[] values = new int[popularityData.size()];
+  //get all values just as a list (0-100), filtered by date prefix so 2014-02 would only grab those 
+  public int[] getDateValuesAsList(String dateFilterString){
+    ArrayList<Integer> values = new ArrayList<Integer>();
+    String dateString = "";
     if (popularityData.size()>0){
       for (int key=0;  key<popularityData.size(); key++){
-         values[key] = popularityData.getJSONObject(key).getInt("value");
+         dateString  = popularityData.getJSONObject(key).getString("date");
+         if (dateString.startsWith(dateFilterString)){
+           values.add(popularityData.getJSONObject(key).getInt("value"));
+         }
       }
     }
-    return values;
+    return IntegerArrToIntArr(values.toArray(new Integer[values.size()]));
+  }
+  
+  //helper to convert ints
+  public int[] IntegerArrToIntArr(Integer[] arr){
+    int[] result = new int[arr.length];
+    for (int i=0; i<arr.length; i++){
+      result[i] = Integer.parseInt(arr[i].toString());
+    }
+    return result;
+  }
+  
+  //get all names just as a list in "YYYY-MM-DD" format, filtered by date prefix so 2014-02 would only grab those 
+  public String[] floatStringsGoogleFormatAsList(String dateFilterString){
+    ArrayList<String> values = new ArrayList<String>();
+     String dateString = "";
+    if (popularityData.size()>0){
+      for (int key=0;  key<popularityData.size(); key++){
+       dateString = popularityData.getJSONObject(key).getString("date");
+        if (dateString.startsWith(dateFilterString)){
+         values.add(dateString);
+       }  
+      }
+    }
+    return values.toArray(new String[values.size()]);
 
   }
   
-   //get all names just as a list.
-  public String[] getDateStringsAsList(){
-    String[] values = new String[popularityData.size()];
+   //get all names just as a list in specified format, filtered by date prefix so 2014-02 would only grab those 
+  public String[] getDateStringsAsList(String dateFilterString, String formatMode){
+    ArrayList<String> values = new ArrayList<String>();
+     String dateString = "";
     if (popularityData.size()>0){
       for (int key=0;  key<popularityData.size(); key++){
-         values[key] = popularityData.getJSONObject(key).getString("date");
-         String[] pieces = values[key].split("-");
-         values[key] = pieces[1]+"/"+pieces[2];
+       dateString = popularityData.getJSONObject(key).getString("date");
+        if (dateString.startsWith(dateFilterString)){
+         String[] pieces = dateString.split("-");
+         //shorthand = "MM/DD" format
+         if (formatMode=="shorthand"){
+           values.add(pieces[1]+"/"+pieces[2]);
+         }else{
+             //google format  = "YYYY-MM-DD"
+             values.add(dateString);
+         }
+       }  
       }
     }
-    return values;
+    return values.toArray(new String[values.size()]);
 
   }
   
@@ -283,21 +330,20 @@ class GTrends{
   public Hashtable<String, Integer> getCategoryBreakdown(final String term, final String regionRestriction, final String startDate,final String endDate, final String specificDay){
        JSONArray tmpData;  
        Hashtable<String, Integer> catBreakdown = new Hashtable();
-      Set<String> keys = CATEGORIES.keySet();
       
       //get categories as an array
       String[] termsArr = new String[CATEGORIES.size()];
       String[] keysArr = new String[CATEGORIES.size()];
-      int count = 0;
-      for (String key: keys){
-        termsArr[count] = term+" "+CATEGORIES.get(key);
-        keysArr[count] = key;
-        count++;
+      int i = 0;
+      String key;
+      for (i=0; i<categories_sortList.length; i++){
+        key = categories_sortList[i];
+        termsArr[i] = term+" "+CATEGORIES.get(key);
+        keysArr[i] = key;
       }
-      
        JSONObject results =  graphQuery( generateMultipleTermsString(termsArr), -1, regionRestriction, startDate,endDate);
        if (results.getString("status")=="success"){
-           for (int i=0; i<results.getJSONObject("data").getJSONArray("lines").size(); i++){
+           for ( i=0; i<results.getJSONObject("data").getJSONArray("lines").size(); i++){
               tmpData = results.getJSONObject("data").getJSONArray("lines").getJSONObject(i).getJSONArray("points");
               catBreakdown.put(keysArr[i], getDateValue(tmpData, specificDay, false));
            }
@@ -312,28 +358,24 @@ class GTrends{
      
      Hashtable<String, Float> percentages = getCategoryPercentages();
      float[] result = new float[percentages.size()]; 
-     Set<String> keys =  percentages.keySet();
-     int count=0;
-     for (String key: keys){
-       result[count] = percentages.get(key)/100.0;
-       count++;
+     String key;
+     for (int i=0; i<categories_sortList.length; i++){
+        key = categories_sortList[i];
+       result[i] = percentages.get(key)/100.0;
      }
      return result;
-
   }
   
    public float[] getCategoryPercentagesAsArray(){
      
      Hashtable<String, Float> percentages = getCategoryPercentages();
      float[] result = new float[percentages.size()]; 
-     Set<String> keys =  percentages.keySet();
-     int count=0;
-     for (String key: keys){
-       result[count] = percentages.get(key);
-       count++;
+     String key;
+      for (int i=0; i<categories_sortList.length; i++){
+       key = categories_sortList[i];
+       result[i] = percentages.get(key);
      }
      return result;
-
   }
   
   public Hashtable<String, Float> getCategoryPercentages(){

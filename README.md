@@ -1,6 +1,6 @@
 GWALL DEMO
 ==========
-v. 0.40
+v. 0.45
 ----------
 A demo for G wall
 
@@ -22,32 +22,28 @@ Current Features
 	- Parallax effect (bars go at different speeds)
 Todo
 ----
-	- Visuals
-		- look day before look delta
-			- how does speed of animation correllate with delta
-			- determine 3 states (min, middle, max) and they get reversed if + and -
-				0-20 = [100,0], 0
-				20-30 = [80,20], 20
-				30-40 = [20,80],30
-				40+ = [0,100],40
-			- make it so different micro speeds ex. 0.25, 1.25 (basically fix jaggedyness)
-				- 0.25 would be 25% of the time aka every 4th frame it would move the next one up..so 1 pixel extra 1/4 of the time. 1.25 would be 2 pixels 1/4 of the time.
-		x brightness changes (at tip of bar)
 	- UI
 		- zoom issues on Mac OS X
-		- resort categories
 		- interactive mobile app to draw on surface / recieve info
+			- server active indicator
 
 Change Log
 -----------
+	v0.45
+	-----
+	- reset colors button
+	- delta / speed states change overhaul
+	- default speeds now accept fractional numbers 1.25, 1.5 for instance
+	- saving indicator
+
 	v0.40
 	-----
 	- day based on delta (WIP)
-	x Parallax effect (bars go at different speeds)
+	- Parallax effect (bars go at different speeds)
 	- brighter at tips of bar
-	x reset zoom mode
-	x fix export settings
-	x pan in super zoom mode make more sensitive
+	- reset zoom mode
+	- fix export settings
+	- pan in super zoom mode make more sensitive
 
 	v0.38
 	-----

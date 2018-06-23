@@ -23,11 +23,18 @@ boolean buttonDInit = false;
 boolean buttonPlayPauseInit = false;
 boolean buttonSaveStillInit = false;
 boolean buttonresetZoomInit= false;
+boolean buttoncolorResetInit = false;
 boolean buttonUp = true;
 
 String textValue = "Seattle";
 String searchDate = "02/01/2014";
 String reformattedDate= "2014-02";
+int[] defaultColors = new int[]{
+  color(66, 134, 245), 
+  color(52, 168, 83), 
+  color(237, 67, 52), 
+  color(255, 240, 68) //248,186, 5--> changing for more vibrance
+};
 int[] mainColors = new int[]{
   color(66, 134, 245), 
   color(52, 168, 83), 
@@ -62,7 +69,6 @@ class ControlFrame extends PApplet {
 
   public void input(String theText) {
     // automatically receives results from controller input
-    println("a textfield event for controller 'input' : "+theText);
     textValue = theText;
     parent.thread("doQueries");
   }
@@ -77,7 +83,6 @@ class ControlFrame extends PApplet {
       dateError = false;
       searchDate = theText;
       reformattedDate = getReformattedDate(searchDate);
-      println("a textfield event for controller 'input' : "+theText+"--->"+reformattedDate);
       parent.thread("doQueries");
     }else{
       dateError = true;
@@ -112,8 +117,16 @@ class ControlFrame extends PApplet {
     }
   }
   
+  //color reset
+  public void  colorReset(int theValue){
+     if (buttoncolorResetInit) {
+         resetColors();
+      } else {
+      buttoncolorResetInit = true;
+    }
+  }
 
-  
+
   // button controller with name colorA
   public void saveStill(int theValue) {
     if (buttonSaveStillInit) {
@@ -121,6 +134,8 @@ class ControlFrame extends PApplet {
         origAnimationState = animationIsPaused;
         animationIsPaused = true;
         Button btn = cp5.get(Button.class, "saveStill");
+        btn.setLabel("Saving...");
+        btn.lock();
         doFolderRoutine();
       } else {
       buttonSaveStillInit = true;
@@ -144,6 +159,7 @@ class ControlFrame extends PApplet {
       Button btn = cp5.get(Button.class, "colorA");
       btn.setColorBackground(promptToChooseColor(btn.getColor().getBackground()));
       mainColors[0] = btn.getColor().getBackground();
+      _log(new Object[]{"main color[0]:", mainColors[0], "default color[0]:",defaultColors[0]});
       regenColorRangeCache();
     } else {
       buttonAInit = true;
@@ -276,7 +292,19 @@ class ControlFrame extends PApplet {
       ;
       
     
-    // create a new button with name 'playPause'
+     // create a new button with name 'Reset colors'
+    cp5.addButton("colorReset")
+      .setValue(0)
+      .setLabelVisible(true)
+      .setLabel("Reset Colors")
+      .setColorLabel(color(180))
+      .setColorBackground(color(30))
+      .setPosition(120, 225)
+      .setSize(80, 20)
+      ;
+
+
+    // create a new button with name 'saveStill'
     cp5.addButton("saveStill")
       .setValue(0)
       .setLabelVisible(true)
@@ -286,7 +314,7 @@ class ControlFrame extends PApplet {
       .setSize(50, 20)
       ;
 
-    // create a new button with name 'playPause'
+    // create a new button with name 'resetZoom'
     cp5.addButton("resetZoom")
       .setValue(0)
       .setLabelVisible(true)
@@ -312,7 +340,8 @@ class ControlFrame extends PApplet {
     stroke(60);
     line(20, height-40, width-20, height-40);
   }
-
+  
+ 
   public void   drawCategoryChart(int x, int y, int diameter, int thickness) {
     if (gt.categoryBreakdown.size()> 0) {
       Hashtable<String, Float> catPercentages = gt.getCategoryPercentages();
@@ -322,8 +351,10 @@ class ControlFrame extends PApplet {
       int count = 0;
       float angleBuffer =2 ;
       noStroke();
+       String key;
       float[] savedAngles = new float[catPercentages.size()];
-      for (String key : keys) {
+      for (int i=0; i<gt.categories_sortList.length; i++){
+         key = gt.categories_sortList[i];
         //remap from 0 to 100 to 360
         currentAngle = map(catPercentages.get(key), 0, 100, 0, 360);
         fill(coolColorRange[count]);
@@ -370,8 +401,8 @@ class ControlFrame extends PApplet {
 
       stroke(155);
       strokeWeight(1);
-      int[] nums = gt.getDateValuesAsList();
-      String[] dateNames = gt.getDateStringsAsList();
+      int[] nums = gt.getDateValuesAsList(reformattedDate);
+      String[] dateNames = gt.getDateStringsAsList(reformattedDate, "shorthand");
       int[] xPerDate = new int[dateNames.length];
         //line(x, y, x+w, y);
         strokeWeight(1);
@@ -384,7 +415,8 @@ class ControlFrame extends PApplet {
         nums[i] = (int)map(nums[i], 0, 100, 0, h);
         int vx = x+(i*w/(nums.length-1));
         int vy = y-nums[i];
-        if (i==gt.currentDateIndex) {
+        //if it equals current month day
+        if (dateNames[i].equals(parseMonthDay())) {
           currentDayVertex = new int[]{vx, vy};
         }
         vertices[i] = new int[]{vx, vy};
@@ -423,6 +455,19 @@ class ControlFrame extends PApplet {
     }
   }
   
+  //parse month and day for current search date 05/20/2014 will give 05/20
+  public String parseMonthDay(){
+    String[] pieces =  searchDate.split("/");
+    return pieces[0]+"/"+pieces[1];
+  }
+  
+    
+  //parse month and day for google date format current search date 05/20/2014 will give 2014-05-20
+  public String getGoogleDateFormat(){
+    String[] pieces =  searchDate.split("/");
+    return pieces[2]+"-"+pieces[0]+"-"+pieces[1];
+  }
+
   public void makeNextPrevTriangle(int x,int y,int w,int h,boolean prev){
     if (prev){
       w*=-1;
@@ -485,7 +530,6 @@ class ControlFrame extends PApplet {
            zeroPrefix = "0";
          }
          String newDate = zeroPrefix+newMonth+"/"+searchDate.split("/")[1]+"/"+newYear;
-         _log(new Object[]{"new date: ", newDate});
           cp5.get(Textfield.class, "date").setValue(newDate);
           //then trigger event
           date(newDate);
@@ -500,6 +544,21 @@ class ControlFrame extends PApplet {
   String mySubString(String myString, int start, int length) {
     return myString.substring(start, Math.min(start + length, myString.length()));
 }
+
+//make default colors
+  public void resetColors(){
+    _log(new Object[]{"reseting colors:", mainColors,"-->",defaultColors});
+    for (int i=0; i<mainColors.length; i++){
+      mainColors[i] = defaultColors[i];
+    }
+    String[] buttonList = new String[]{"colorA", "colorB", "colorC", "colorD"};
+    Button btn;
+    for (int i=0; i<buttonList.length; i++){
+        btn = cp5.get(Button.class, buttonList[i]);
+        btn.setColorBackground(mainColors[i]);
+    }
+    regenColorRangeCache();
+  }
 
   public void drawHotTopicsList(int x, int y){
     String[] hTopics = gt.getHotTopics();
@@ -637,6 +696,9 @@ class ControlFrame extends PApplet {
     } 
     if (exportMode==3){ //we're in export mode and need to finish
       endRecord();
+      Button btn = cp5.get(Button.class, "saveStill");
+      btn.setLabel("Save PDF");
+      btn.unlock();
       exportMode = 4;
     }
   }

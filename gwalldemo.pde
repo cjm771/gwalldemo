@@ -56,7 +56,7 @@ SETUP
 
 void setup() {
   //15 frames 
-   frameRate(15);
+   frameRate(32);
    smooth(4);
    //to avoid pdf erros...
    PFont font = createFont("LSANS.TTF",32);
@@ -135,7 +135,7 @@ QUERIES ROUTINE
 //popularity query
 public void popQuery(){
     //query seattle popularity on may 1
-    JSONObject googleResp = gt.queryPopularity(textValue, -1, "", reformattedDate,reformattedDate, searchDate);
+    JSONObject googleResp = gt.queryPopularity(textValue, -1, "", gt.previousMonth(reformattedDate),reformattedDate, searchDate);
     if (googleResp.getString("status")=="success"){
       //we got data
       if (matrix!=null)
@@ -287,9 +287,43 @@ void initRectangleData(){
   
 }
 
+int drawRectIfExists(String key,color prevColor){
+      //set scale per rectangle
+   // print(rect)
+   if (matrix.cellExists(key) && Rects.containsKey(key)){
+     MatrixCell currentCell;
+     Bounds rect = Rects.get(key);
+     rect.setBounds(mainBounds);
+     //draw it if it exists          
+     currentCell = matrix.getCell(key);
+     color prevColorToDraw =   (prevColor==-999999) ? matrix.getColor(currentCell) : prevColor;
+     rect.drawGlow(currentCell, prevColorToDraw);
+     rect.drawRect(currentCell, prevColorToDraw);
+     //if this is new color then return prevColor
+     return (currentCell.pixelId==0 || prevColor==-999999) ? matrix.getColor(currentCell) : prevColor;
+     }else{
+       return prevColor;
+     }
+     
+      
+}
+
 void drawRectangles(){
 
-
+  color prevColor = -999999;
+  for (int colIndex=0; colIndex<matrix.totalColumns; colIndex++){
+    if (matrix.ANIMATION_MODE.equals("up")){
+      for (int rowIndex=matrix.totalRows-1; rowIndex>=0; rowIndex--){
+            prevColor = drawRectIfExists(matrix.getIdStr(rowIndex, colIndex), prevColor);     
+      }
+    }else{
+     for (int rowIndex=0; rowIndex<=matrix.totalRows-1; rowIndex++){
+          prevColor = drawRectIfExists(matrix.getIdStr(rowIndex, colIndex), prevColor);     
+      }
+    }
+  }
+  
+  /*
   Set<String> keys = Rects.keySet();
   for (String key: keys){
     //set scale per rectangle
@@ -306,7 +340,7 @@ void drawRectangles(){
      }
      
   }
-  
+  */
 }
 
  public color[] generateColorRange(color c1,color c2, int steps){
@@ -378,19 +412,21 @@ void draw() {
     //still not ready..
        background(0);
       drawLoadingRoutine();
-    }else if (gt.initPopQuery==1 || gt.initCatQuery==1 || gt.initRegionQuery==1){
+    }else if (gt.initPopQuery==1 || gt.initCatQuery==1 || gt.initRegionQuery==1){ //FIRST INIT
       //ready to init matrix..
       initRectangleData();
       gt.initPopQuery=3; 
       gt.initCatQuery=3;
       gt.initRegionQuery=3;
-    }else if (gt.initPopQuery==2 || gt.initCatQuery==2 || gt.initRegionQuery==2){
-      log(new Object[]{"recolorizing!!"});
+    }else if (gt.initPopQuery==2 || gt.initCatQuery==2 || gt.initRegionQuery==2){ //CHANGE to date occurred after init
+      //update state + stuff for existing
+      matrix.handleDayChange();
+      //recolorize matrix (for unseen bars + major changes
       matrix.currentMatrix = matrix.reColorizeMatrix(matrix.currentMatrix);
       gt.initPopQuery=3; 
       gt.initCatQuery=3;
       gt.initRegionQuery=3;
-    }else{
+    }else{ //typical state
         translate(width/2, height/2);
         scale(scale);
         translate(-xPan, -yPan);
@@ -408,7 +444,7 @@ void draw() {
       drawBackgroundImage(bg);
       drawRectangles();
       tint(255,100);
-      drawBackgroundImage(fg); //<>//
+      drawBackgroundImage(fg);
     }
   }
   if (exportMode==1){ //check if we need to do end export routine   
@@ -447,7 +483,6 @@ class Bounds {
   //normalize color(brightness=100)
   public color normalize(color c){
       colorMode(HSB, 255);
-      float v = brightness(c);
       c = color(hue(c), saturation(c), 100);
       colorMode(RGB, 255);
       return c;
@@ -458,7 +493,6 @@ class Bounds {
     //normalize color
     c = normalize(c);
     colorMode(HSB, 255);
-    float v = brightness(c);
     c = color(hue(c), saturation(c), min(255, round(amount*255)));
     colorMode(RGB, 255);
     return c;
@@ -468,6 +502,8 @@ class Bounds {
   public void renderRect(){
      rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
   }
+
+  
   
   //get color
   public color getColor(MatrixCell cell){
@@ -482,13 +518,14 @@ class Bounds {
   }
   
   //draws glow
-  public void drawGlow(MatrixCell cell){
+  public void drawGlow(MatrixCell cell, color prevColor){
     
     noFill();
     float[] brightness = new float[]{1,1,1}; //original 1,1,1
     int[] weights = new int[]{4,9,16}; //original 4,9,16
     float[] alpha = new float[]{0.15,0.05,0.01}; //original 0.15,0.05,.01
     color c = getColor(cell);
+    //color c = getSmoothenedColor(cell,prevColor, 4); //smooth color with next ..tail length 2
     stroke(brightenColor(c,brightness[2]),map(alpha[2], 0,1,0,255));
     strokeWeight(weights[2]);
     renderRect();
@@ -500,11 +537,30 @@ class Bounds {
     renderRect();
   }
   
+  //smoothens color at tail
+  public color getSmoothenedColor(MatrixCell cell, color prevColor, int tailLength){
+    color c1,c2;
+    
+    //0 is tail..1 is one after tail..
+    int tailIndex = cell.pixelLength-cell.pixelId;
+    if (tailIndex<tailLength){
+      c1 = getColor(cell);
+      c2 = prevColor;
+      int[] tailColorRange = generateColorRange( c2, c1, tailLength+2); //add two to 
+      tailColorRange = java.util.Arrays.copyOfRange(tailColorRange, 1, tailColorRange.length-1); //slice off the end conditions
+      return tailColorRange[tailIndex];
+    
+    }else{
+      return getColor(cell);
+    }
+  }
+  
   //draws cell
-  public void drawRect(MatrixCell cell){
+  public void drawRect(MatrixCell cell, color prevColor){
     color c = getColor(cell);
+    //color c = getSmoothenedColor(cell, prevColor, 4); //smooth color with next ..tail length 2
     noStroke();
-    fill(brightenColor(c,map(cell.pixelId, 0, cell.pixelLength, 1,.9)));
+    fill(brightenColor(c,map(cell.pixelId, 0, cell.pixelLength, 1,.85)));
     renderRect();
     fill(255);
     //textSize(.45); //this causes weird errors..but shouldnet need this its for debugging.

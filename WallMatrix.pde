@@ -18,6 +18,7 @@ import java.util.Hashtable;
 import java.util.Set;
 import java.util.Random;
 import java.util.Arrays;
+import java.util.UUID;
 
 
 class WallMatrix {
@@ -29,16 +30,24 @@ class WallMatrix {
   //settings
   int[] lengthRange;
   int matrixId = 0; //deckId to pair with vertical bar id..incrementall grows
-  int[] randSpeeds;
+  float[] defaultSpeeds = new float[]{1,1.5,2,2.25}; //default speeds
+  float[] randSpeeds; //random selection from default speeds depending on amount of columns
   float popularityFactor = 0; //0.0-1.0 number representing popularity
   float[] catBreakdown;
   color[] cr, crHot;
-  //color states are the possible states
-  float[][] colorStates = new float[][]{
-    new float[]{0,   1.0}, //delta @ +5 = 100% blue, @ -5 = 0% red
-    new float[]{20,  0.8}, //delta @ +20 = 80% blue, @ -20 = - additional 20% red
-    new float[]{30,  0.2}, //delta @ +30 = 20% blue, @ -30 = - additonal 40% red
-    new float[]{40,  0.0} //delta @ +40 =  0% blue,  @ -40 = - additional 100% red
+  float currentState  = 0.0; //state of day (represents index for colorStates + speedStates)
+  float[] speedStates = new float[]{1, 1, 1.2, 1.3, 1.4};
+  //color states are the possible states (ratio of cool tones)
+  float[] colorStates = new float[]{1, 0.9, 0.75, 0.1, 0.0};
+  
+  //delta moves: the deltat relationship to moving of states
+  //percentage 0 = delta, 1 = change for +, 2 = change for - 
+  float[][] deltaMoves = new float[][]{ 
+    new float[]{0,  -1.0,  -1.0},  //no major change always degrade
+    new float[]{9,  1.0,  -1.0},
+    new float[]{20,  2.0,  -2.0}, 
+    new float[]{30,  3.0,  -3.0}, 
+    new float[]{40,  4.0,  -4.0} 
   };
     
   String ANIMATION_MODE = "down"; //up or down..animation mode
@@ -137,6 +146,27 @@ class WallMatrix {
        return matrix;
   }
   
+  //get next vertical bar starting cell
+  public MatrixCell getNextVerticalBarStart(Hashtable matrix, int rowIndexStart, int colIndex){
+    MatrixCell result = (MatrixCell)matrix.get(getIdStr(rowIndexStart, colIndex));
+      int[] rowDomain = getRowDomain(matrix, colIndex);
+    if (ANIMATION_MODE.equals("up")){
+       for (int rowIndex = rowIndexStart+1; rowIndex<=rowDomain[1]; rowIndex++){
+         if (isStartOfBar(matrix, rowIndex, colIndex)){
+           return (MatrixCell)matrix.get(getIdStr(rowIndex, colIndex));
+         
+         }
+       }
+     }else{
+        for (int rowIndex = rowIndexStart-1; rowIndex>=rowDomain[0]; rowIndex--){
+          if (isStartOfBar(matrix, rowIndex, colIndex)){
+             return (MatrixCell)matrix.get(getIdStr(rowIndex, colIndex));
+           }
+        }
+     }
+     return result; //safety net if last cell..
+  }
+  
   public Hashtable reIdUnseenBars(Hashtable matrix){
      //first check the first unseen row, less than -1 for down, totalRows for up
         int firstUnseenRow;
@@ -159,12 +189,10 @@ class WallMatrix {
                if (firstBarFound==false){
                  if (isStartOfBar(matrix, rowIndex,colIndex)){
                    firstBarFound = true;
-                   log(new Object[]{"!!!!!!!!!!!!!!!!first unseen is :", rowIndex});
                  }
                }
                
                if (firstBarFound){
-                 log(new Object[]{"updating :", rowIndex, colIndex});
                 matrix = updateMatrixId(matrix, rowIndex, colIndex, matrixId);
                }
              }
@@ -191,8 +219,8 @@ class WallMatrix {
   
   
   //rand int from bank of options
-  public int[] randIntArr(int[] bank, int count){
-    int[] result = new int[count];
+  public float[] getNItemsRandomlyFromArr(float[] bank, int count){
+    float[] result = new float[count];
     for (int i=0; i<count; i++){
       result[i] = bank[floor(random(0,bank.length))];
     }
@@ -218,35 +246,36 @@ class WallMatrix {
     }
     return matrix;
   }
-    
-  
+   //update current state
+  public void updateCurrentState(){
+  //get todays date in google trends format i.e. YYYY-MM-DD 2014-02-06
+      String currentDateStr = win.getGoogleDateFormat();
+      //get date values as array
+      int[] dateValues = gt.getDateValuesAsList(""); //"" = no filter
+      //get date strings as array
+      String[] dateStrings = gt.getDateStringsAsList("","googleFormat"); //"" = no filter
+      float tmpCurrentState = 0;
+      float tmpDelta = 0;
+      float change;
+      for (int i=1; i<dateValues.length; i++){
+          //calc delta..see how much state should change 
+          tmpDelta = dateValues[i]-dateValues[i-1];
+          //calc step change
+          change = calculateStateChange(tmpDelta);
+          //log(new Object[]{"date:",dateStrings[i],"original:", tmpCurrentState,"change to do: ", change, " --> new: ", tmpCurrentState+change});
+          tmpCurrentState =  constrain(tmpCurrentState+change, 0, colorStates.length-1);
+        if (dateStrings[i].equals(currentDateStr)){
+          break; //exit for loop we done.
+        }
+      }
+      currentState = constrain(tmpCurrentState, 0, colorStates.length-1);
+      //log (new Object[]{"current state is:", currentState});
+  }
   //set warm and cool given the currentMatrix and mId 
   public Hashtable<String, MatrixCell> setWarmCool(Hashtable<String, MatrixCell> matrix, int mId){
       Set<String> keys = matrix.keySet();
-    //look at states...and find it depending on delta
-      float[] currState = new float[2];
-      float[] currStateNext = new float[2];
-      float ratio = 0;
-      for (int i=0; i<colorStates.length; i++){
-        currState = colorStates[i];
-        currStateNext = (i+1!=colorStates.length) ? colorStates[i+1] : new float[]{100, 0}; //if last make a new one at 100
-        log(new Object[]{"testing...",currState[0], "<",abs(gt.delta),"<",currStateNext[0]});
-        //check if it exists in range..if so..get ratio
-        if (currState[0]<=abs(gt.delta) && abs(gt.delta)<= currStateNext[0]){
-          log(new Object[]{"winner!!"});
-          ratio = currState[1];
-        }
-      }
-      log(new Object[]{"ratio determined is: ",ratio}); 
-      //determine ratio
-      
-      
-      if (gt.delta<0){
-        log(new Object[]{"reversing ratio..", ratio, "-->", (1-ratio)});
-        ratio = 1-ratio; //reverse it then
-      }
-      
-      
+    
+      float ratio = colorStates[floor(currentState)];
       Hashtable<String, Object> barDictionary = getListByDistributionBreakdown(new Object[]{false,true}, getBarIdsByMatrixId(matrix, mId), new float[]{ratio,1-ratio});
       //log(new Object[]{"bar dictionary:", barDictionary});
       for (String key : keys) {
@@ -256,9 +285,27 @@ class WallMatrix {
             
           }
       }
+      
       return matrix;
   }
-  
+  //calculate state change..depending on delta, returns adjustment to state (amount of steps..which will turn into an index.
+  public float calculateStateChange(float delta){
+    float[] currState, currStateNext;
+    float finalChange = 0;
+    for (int i=0; i<deltaMoves.length; i++){
+        currState = deltaMoves[i];
+        currStateNext = (i+1!=deltaMoves.length) ? deltaMoves[i+1] : new float[]{100, 0}; //if last make a new one at 100
+        //log(new Object[]{"testing...",currState[0], "<",abs(delta),"<",currStateNext[0]});
+        //check if it exists in range..if so..get ratio
+        if (currState[0]<=abs(delta) && abs(delta)<= currStateNext[0]){
+         // log(new Object[]{"winner!!"});
+         //if positive use + speed, else use - speed
+          finalChange = (delta<0) ? currState[2] : currState[1];
+          break;
+        }
+      }
+      return finalChange;
+  }
   public String updateBarId(String barId, int newMatrixId){
     return createBarId(newMatrixId, explodeBarId(barId)[1]); 
   }
@@ -352,6 +399,18 @@ class WallMatrix {
     }
     return resStr;
   }
+  
+  public color getColorByUUID(String uuid){
+    Set<String> keys = currentMatrix.keySet();
+    MatrixCell tmpCell = currentMatrix.get(getIdStr(0,0)); //in case we dont find one...
+    for (String key: keys){
+       tmpCell = currentMatrix.get(key);
+       if (tmpCell.uuid.equals(uuid)){
+         return getColor(tmpCell);
+       }
+    }
+    return getColor(tmpCell); //safety net?
+  }
 
   //basis for inserting a cell
   private Hashtable insertCell(
@@ -362,7 +421,8 @@ class WallMatrix {
       int colorIndex, //colorIndex
       int pixelLength, //pixelLength
       boolean isWarm, //warm or cool tone
-      String verticalBarId //vertical bar id
+      String verticalBarId, //vertical bar id
+      String nextVerticalBarId //vertical bar id
    ){
     //we build the pixel up
     int modifier;
@@ -377,7 +437,8 @@ class WallMatrix {
       pixelLength,
       pixelIndex,
       isWarm, 
-      verticalBarId
+      verticalBarId,
+      nextVerticalBarId
       ));
       return matrix;
   }
@@ -390,20 +451,19 @@ class WallMatrix {
     if (nextIndex==-1) {
       log(new Object[]{"safety net issue! column:", colIndex, "next index:", nextIndex});
     }
-    
-
+       String prevBarOriginCellUUID;
+      int previousRowIndex = (ANIMATION_MODE.equals("up") ? nextIndex+1 : nextIndex-1);
+      MatrixCell prevCell = (MatrixCell)matrix.get(getIdStr(previousRowIndex, colIndex));
+      //we get verticalbar id
+      if (prevCell!=null){
+         prevBarOriginCellUUID = prevCell.uuid;
+      }else{
+         prevBarOriginCellUUID = "None";
+      }
     for (int i =0; i<pixelLength; i++) {
-      /*
-      matrix.put(getIdStr(nextIndex+(i*modifier), colIndex), new MatrixCell(
-      colorIndex, 
-      pixelLength,
-      i,
-      false, 
-      verticalBarId
-      ));
-      */
+     
       //insert cell given a row + bar pixel index
-      matrix = insertCell(matrix, nextIndex, colIndex, i, colorIndex, pixelLength, false,verticalBarId);
+      matrix = insertCell(matrix, nextIndex, colIndex, i, colorIndex, pixelLength, false,verticalBarId, prevBarOriginCellUUID);
     }
 
     return matrix;
@@ -468,7 +528,6 @@ class WallMatrix {
          minMaxDomain[1] = rowDomains[i][1];
       }  
     }
-    log(new Object[]{"new min max is: ", minMaxDomain});
     //return beginning domain if down, return end domain if up
     if (ANIMATION_MODE.equals("up")) {
       return minMaxDomain[1];
@@ -510,7 +569,6 @@ class WallMatrix {
     Hashtable<String,MatrixCell> newMatrix = new Hashtable();
     //anything over totalrows..
     int lastEmptyIndex = getLastEmptyIndex(sourceMatrix);
-    log (new Object[]{"last empty index is :", lastEmptyIndex});
     Set<String> keys = sourceMatrix.keySet();
     for (String key : keys) {
       int[] idIntArr = parseIdStrToIntArr(key);
@@ -758,9 +816,13 @@ class WallMatrix {
 
   
   public void shiftColumnsAdditionalSpeed(){
+    int extra;
+    float amountToShift, frameNum;
     for (int colIndex=0; colIndex<randSpeeds.length; colIndex++){ //columns
-        int amountToShift = randSpeeds[colIndex]; //could be 0 , 1 , or 2
-        popOffColumn(colIndex, amountToShift);
+        amountToShift = randSpeeds[colIndex]; //could be 0 , 1 , or 2
+        frameNum = 1/(amountToShift%1); //if amountoshift = 1.25, than .25 than 4 frames
+        extra = (frameCount%frameNum==0) ? 1  : 0;
+        popOffColumn(colIndex, floor(amountToShift)+extra);
     }
   }
 
@@ -874,9 +936,33 @@ class WallMatrix {
             } 
           
          //  log(new Object[]{"new domain for col index #", colIndex,":", getRowDomain(currentMatrix, colIndex),"\n-------\n"});   
-  }  
+  } 
+  
+  public color getColor(MatrixCell cell){
+       color c;
+      if (cell.isWarm){
+        c = warmColorRange[cell.colorIndex];
+      }else{
+        c = coolColorRange[cell.colorIndex];
+      }
+      return c;
+      
+  }
 
-
+  //populate currentmatrix with the next bar color info
+  public void generateNextBarColorInfo(){
+    Set<String> keys = currentMatrix.keySet();
+    int[] rowColArr;
+    MatrixCell tmpCell;
+    MatrixCell nextCell;
+    for (String key: keys){
+      tmpCell =  currentMatrix.get(key);
+       rowColArr = parseIdStrToIntArr(key);
+       nextCell = getNextVerticalBarStart(currentMatrix, rowColArr[0], rowColArr[1]);
+       tmpCell.nextBarColor = getColor(nextCell);
+       
+    }
+  }
   //do shifting animation
   public void shift() {
      /*
@@ -886,11 +972,13 @@ class WallMatrix {
       
     */  
   //log(new Object[]{"matrix prepop:", matrixVisualize(currentMatrix)});
-    currentMatrix = popRow(currentMatrix);
+    //currentMatrix = popRow(currentMatrix);
    //log(new Object[]{"matrix after pop:", matrixVisualize(currentMatrix)});
     //then shift column..cells..if up do one thing if not do another thing..overall id remains same, but matrix switches
      
      shiftColumnsAdditionalSpeed();
+     //use matrix data and generate next color info
+     
      //stop();
     //log(new Object[]{"matrix after additional shift:", matrixVisualize(currentMatrix)});
    
@@ -904,6 +992,7 @@ class WallMatrix {
       //log(new Object[]{"leftover:", matrixVisualize(pieces[1])});
       //now we take out truncated matrix, and make a new frame using the leftover portions as a base (creating a seamless transition)
       currentMatrix = combineMatrices(pieces[0], generateMatrix(pieces[1]));
+
       //log(new Object[]{"recombined:", matrixVisualize(currentMatrix)});
     }
     
@@ -917,17 +1006,31 @@ class WallMatrix {
     crHot  = _crHot;
   }
 
+  public float[] applyMultiplierToArrayValues(float[] arr, float multiplier){
+    float[] tmpArr = new float[arr.length];
+    for (int i =0; i<arr.length; i++){
+      tmpArr[i]=arr[i]*multiplier;
+    }
+    return tmpArr;
+  
+  }
+  //run when the day has changed! 
+  public void handleDayChange(){
+     //get current state (used for color distribution and speed
+     updateCurrentState();
+    //get random set of numbers for amount of columns
+    
+    randSpeeds = getNItemsRandomlyFromArr(applyMultiplierToArrayValues(defaultSpeeds, speedStates[floor(currentState)]), totalColumns); //additional speed 
+  }
 
   public WallMatrix(int _totalRows, int _totalColumns, float _popularityFactor, int[] _lengthRange, float[] _catBreakdown, color[] _cr, color[] _crHot) {
     //bounds represent total
     totalRows = _totalRows; //add extra to hide seam
     totalColumns = _totalColumns;
-    //get random set of numbers for amount of columns
-    randSpeeds = randIntArr(new int[]{0,1,2}, totalColumns); //additional speed 
-    log(new Object[]{"random speeds..", randSpeeds});
+    //init handle day change
+    handleDayChange();
     setSettings( _lengthRange, _popularityFactor, _catBreakdown, _cr, _crHot);
     currentMatrix = generateMatrix(new Hashtable());
-
   }
 }
 
@@ -936,13 +1039,17 @@ class WallMatrix {
 //each cell houses a color index, warm/cool,bar id
 class MatrixCell {
   int colorIndex, pixelLength, pixelId;
-  String verticalBarId;
+  String uuid, prevBarOriginCellUUID; //cell uuid
+  color nextBarColor; //next cell we store this to smoothen colors
+  String verticalBarId, prevVerticalBarId;
   boolean isWarm;
-  public MatrixCell(int _colorIndex, int _pixelLength, int _pixelId, boolean _warmCool, String _verticalBarId) {
+  public MatrixCell(int _colorIndex, int _pixelLength, int _pixelId, boolean _warmCool, String _verticalBarId, String _prevBarOriginCellUUID) {
     isWarm = _warmCool;
     colorIndex = _colorIndex;
     verticalBarId = _verticalBarId;
+    uuid =  UUID.randomUUID().toString();
     pixelId = _pixelId;
     pixelLength = _pixelLength;
+    prevBarOriginCellUUID = _prevBarOriginCellUUID;
   }
 }
