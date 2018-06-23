@@ -19,7 +19,7 @@ import java.util.Hashtable;
 import processing.pdf.*;
 import com.google.gson.Gson;
 
-String VERSION = "0.40";
+String VERSION = "0.45";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;
