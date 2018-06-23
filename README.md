@@ -4,7 +4,7 @@ v. 0.45
 ----------
 A demo for G wall
 
-![preview](https://i.imgur.com/dSXLCKVg.png)
+![preview](https://i.imgur.com/gMKk4nqg.jpg)
 
 Current Features
 -----------------
