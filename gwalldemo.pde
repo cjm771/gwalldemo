@@ -19,7 +19,7 @@ import java.util.Hashtable;
 import processing.pdf.*;
 import com.google.gson.Gson;
 
-String VERSION = "0.45";
+String VERSION = "0.48";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;
@@ -323,6 +323,8 @@ void drawRectangles(){
     }
   }
   
+  
+  
   /*
   Set<String> keys = Rects.keySet();
   for (String key: keys){
@@ -341,6 +343,51 @@ void drawRectangles(){
      
   }
   */
+}
+
+public void drawSketches(){
+  int[] tmpCoords = new int[]{}; 
+  float[] range= new float[]{500, 20}; //100- millis = black , 20+ millis = white
+   int timePassed = 0;
+  //if we're drawing a sketch
+  if (gwc.drawingASketch){
+     //look at current pixel id
+     //get millis passed
+     int lastKnownIndex = 0; 
+     timePassed = millis()-gwc.sketchStartedAt;
+     for (int i=0; i<gwc.currentSketch.size(); i++){
+       
+       //get item
+       JSONObject currentItem = gwc.currentSketch.getJSONObject(i);
+      
+       //time constraints, if its 0 and 0 time has passed if its 20 now and 0 was drawn 20 seconds ago
+       //first wee see if time has passed yet to render this guy..if not skip
+       
+       lastKnownIndex = (timePassed-currentItem.getFloat("timestamp")>0) ? i : lastKnownIndex;
+       if (timePassed>=currentItem.getFloat("timestamp")){
+          int rowIndex = currentItem.getJSONArray("coord").getInt(1);
+         int colIndex = currentItem.getJSONArray("coord").getInt(0);
+         int alphaVal = (int)map(constrain(timePassed-currentItem.getFloat("timestamp"), range[1], range[0]), range[1], range[0],0, 255);
+         String key = matrix.getIdStr(rowIndex, colIndex);
+         if (Rects.containsKey(key)){
+           Bounds rect = Rects.get(key);
+           rect.renderGlow(color(255,255,255, alphaVal));
+           rect.renderRect(color(255,255,255, alphaVal));
+         }
+       }
+       
+     }
+     if (lastKnownIndex>=gwc.currentSketch.size()-1){
+        //reset
+        gwc.drawingASketch=false;
+     }
+
+}else if (gwc.sketchesToDo.size()>0){
+    gwc.drawingASketch=true;
+    gwc.currentSketch = gwc.sketchesToDo.get(0);
+    gwc.sketchesToDo.remove(0);
+    gwc.sketchStartedAt = millis();
+  }
 }
 
  public color[] generateColorRange(color c1,color c2, int steps){
@@ -443,6 +490,7 @@ void draw() {
       tint(255,150);
       drawBackgroundImage(bg);
       drawRectangles();
+      drawSketches();
       tint(255,100);
       drawBackgroundImage(fg);
     }
@@ -499,7 +547,7 @@ class Bounds {
   }
   
   
-  public void renderRect(){
+  public void _renderRect(){
      rect((tlX)*xRatio,(tlY)*xRatio*-1,getWidth()*xRatio, getHeight()*xRatio);
   }
 
@@ -517,24 +565,28 @@ class Bounds {
     
   }
   
-  //draws glow
-  public void drawGlow(MatrixCell cell, color prevColor){
-    
+  public void renderGlow(color c){
     noFill();
+    //color c = getSmoothenedColor(cell,prevColor, 4); //smooth color with next ..tail length 2  noFill();
     float[] brightness = new float[]{1,1,1}; //original 1,1,1
     int[] weights = new int[]{4,9,16}; //original 4,9,16
     float[] alpha = new float[]{0.15,0.05,0.01}; //original 0.15,0.05,.01
-    color c = getColor(cell);
-    //color c = getSmoothenedColor(cell,prevColor, 4); //smooth color with next ..tail length 2
     stroke(brightenColor(c,brightness[2]),map(alpha[2], 0,1,0,255));
     strokeWeight(weights[2]);
-    renderRect();
+    _renderRect();
     stroke(brightenColor(c,brightness[1]),map(alpha[1], 0,1,0,255));
     strokeWeight(weights[1]);
-    renderRect();
+   _renderRect();
     stroke(brightenColor(c,brightness[0]),map(alpha[0], 0,1,0,255));
     strokeWeight(weights[0]);
-    renderRect();
+   _renderRect();
+   noStroke();
+  }
+  //draws glow
+  public void drawGlow(MatrixCell cell, color prevColor){
+    
+    color c = getColor(cell);
+    renderGlow(c);
   }
   
   //smoothens color at tail
@@ -554,15 +606,16 @@ class Bounds {
       return getColor(cell);
     }
   }
-  
+  public void renderRect(color c){
+     noStroke();
+    fill(c);
+    _renderRect();
+    fill(255);
+  }
   //draws cell
   public void drawRect(MatrixCell cell, color prevColor){
     color c = getColor(cell);
-    //color c = getSmoothenedColor(cell, prevColor, 4); //smooth color with next ..tail length 2
-    noStroke();
-    fill(brightenColor(c,map(cell.pixelId, 0, cell.pixelLength, 1,.85)));
-    renderRect();
-    fill(255);
+    renderRect(brightenColor(c,map(cell.pixelId, 0, cell.pixelLength, 1,.85)));
     //textSize(.45); //this causes weird errors..but shouldnet need this its for debugging.
     //text(cell.verticalBarId, getCenter()[0]*xRatio, getCenter()[1]*xRatio*-1);
   }

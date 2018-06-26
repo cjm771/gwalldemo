@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Gwall Clientside</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <!--essentials -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/castle.js"></script>
+        <script src="js/Pixelator.min.js"></script>
+        <script src="js/gWallDraw.js"></script>
+
+        <!-- dependecies if using toolbar -->
+        <link rel="stylesheet" type="text/css" href="css/style.css"> 
+        <link rel="stylesheet" type="text/css" href="css/spectrum.css"> 
+        <link rel="stylesheet" type="text/css" href="css/pixelator_toolbar.css"> 
+        <script src='js/spectrum.js'></script>
+
+    </head>
+    <body>
+    	<div id='container'>
+    		<div id='activeView'>
+		    	<!-- root -->
+				<div data-route="root" class='castle-view'>
+		            <div id='miniToolbar'>
+		            	<button id='sendSketch'>Send</button>
+		            	<button id='clearSketch'>Clear</button>
+		            </div>
+		            <canvas id='myCanvas' />
+		        </div>
+		        <!-- info -->
+				<div data-route="info" class='castle-view'>
+					Im the info page!
+		        </div>
+		    </div>
+		    <div id='menu'>
+		    	<ul id='tabs'>
+					<li class='active'><a  href='#'>Draw</a></li>
+					<li><a href='#info'>Info</a></li>
+				</ul>
+		    </div>
+    </body>
+</html>

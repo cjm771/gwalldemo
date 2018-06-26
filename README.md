@@ -1,6 +1,6 @@
 GWALL DEMO
 ==========
-v. 0.45
+v. 0.48
 ----------
 A demo for G wall
 
@@ -22,13 +22,31 @@ Current Features
 	- Parallax effect (bars go at different speeds)
 Todo
 ----
+	- update popularity steps/deltas
+	- update startData
+	- regional changes?
+
 	- UI
-		- zoom issues on Mac OS X
+		- default colors in swatch bar?
+		- zoom issues on Mac OS X? issue resolved
 		- interactive mobile app to draw on surface / recieve info
-			- server active indicator
+			- MOBILE APP
+				- info and stuff disabled / cleared when wall is not live
+				- wall indicator (is wall active)
+				- ui / dark matching theme
+				- send info to web and render it
+				- pixelator, edit timeout / speedier drawing
+			- SERVER
+				- server active indicator?
+				- copy url to clipboard
 
 Change Log
 -----------
+	v0.48
+	-----
+	- interactive mobile portion has been started
+	- server included  (if endpoint dies, deploy hottopics api from server/gserver folder..listens to 3005 port)
+
 	v0.45
 	-----
 	- reset colors button

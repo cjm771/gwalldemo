@@ -1,0 +1,74 @@
+body,html{
+	background: #e1e1e1;
+	margin: 0px;
+	padding: 0px;
+	font-family: arial, helvetica, sans-serif;
+	height: 100%;
+}
+.pxltr_wpr{
+	margin: 0px auto;
+	display: block;
+}
+#container{
+	max-width: 800px;
+	margin: 0px auto;
+	background: #fff;
+	height: 100%;
+	position: relative;
+}
+#miniToolbar{
+	padding: 10px;
+	background: #c0c0c0;
+	margin-bottom: 5px;
+}
+#activeView{
+}
+#menu{
+	background: #000;
+	width: 100%;
+	position: absolute;
+	bottom: 0;
+}
+#menu ul{
+	padding: 0px;
+	display: block;
+	margin:0px;	
+	width: 100%;
+}
+#menu li{
+	list-style-type: none;
+	display: inline-block;
+	margin: 0px;
+	padding: 0px;
+	width: 49%;
+	text-align: center;
+	-webkit-margin-before: 0em;
+    -webkit-margin-after: 0em;
+    -webkit-margin-start: 0px;
+    -webkit-margin-end: 0px;
+    -webkit-padding-start: 0px;
+}
+#menu li a{
+	text-decoration: none;
+	color: #ffffff;
+	display: block;
+	padding: 20px;
+}
+#menu li.active{
+	background: #1CB9E2;
+}
+
+/* Smartphones (portrait and landscape) ----------- */
+@media only screen 
+and (min-width : 320px)
+and (max-width : 1024px){
+	#container{
+		width: 100%;
+	}
+}
+/* iPads (portrait and landscape) ----------- */
+@media only screen 
+and (min-width : 641px) 
+and (max-width : 1024px) {
+
+}
