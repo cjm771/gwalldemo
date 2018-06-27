@@ -30,13 +30,29 @@ class WallMatrix {
   //settings
   int[] lengthRange;
   int matrixId = 0; //deckId to pair with vertical bar id..incrementall grows
-  float[] defaultSpeeds = new float[]{1,2,3}; //default speeds (randomly to chose from)
+  //float[] defaultSpeeds = new float[]{1,1.2,3}; //default speeds (randomly to chose from)
   float[] randSpeeds; //random selection from default speeds depending on amount of columns
   float popularityFactor = 0; //0.0-1.0 number representing popularity
   float[] catBreakdown;
   color[] cr, crHot;
   float currentState  = 0.0; //state of day (represents index for colorStates + speedStates)
-  float[] speedStates = new float[]{.75, .85,.95,1.0,1.1};
+  //float[] speedStates = new float[]{.75, .85,.95,1.0,1.1};
+   float[][] speedStates = new float[][]{
+     new float[]{.5,  0.75, 1, 1.25},
+     new float[]{.5,  0.5, 0.75, 1.0},
+     new float[]{.5,  0.75, 1, 1.25},
+     new float[]{.5,  0.75, 1, 1.25},
+     new float[]{.75,  1.25,  1.5, 1.75}
+   };
+   
+   int[][] barStates = new int[][]{
+     new int[]{12,15},
+     new int[]{9,12},
+     new int[]{5,8},
+     new int[]{4,7},
+     new int[]{3,5}
+   };
+   
   //color states are the possible states (ratio of cool tones)
   float[] colorStates = new float[]{1, 0.9, 0.75, 0.1, 0.0};
   
@@ -86,7 +102,10 @@ class WallMatrix {
       //first fill with random amounts until full
       for (int ci=0; ci<totalColumns; ci++) {
         if (!columnIsFull(tmpMatrix, ci)) {
-          //get color and number
+          //get color and number 
+          //FAKE country values!
+          lengthRange = barStates[(int)currentState];
+          //<--- end fake country values
           tmpMatrix = insertVerticalBarAtColIndex(tmpMatrix, ci, createBarId(matrixId, verticalBarId),(int)random(colorRangeCool.length), (int)random(lengthRange[0], lengthRange[1]+1));
            
         //log(new Object[]{"matrix:\n",tmpMatrix,"\n\n"});
@@ -321,8 +340,9 @@ class WallMatrix {
         currStateNext = (i+1!=deltaMoves.length) ? deltaMoves[i+1] : new float[]{100, 0}; //if last make a new one at 100
         //log(new Object[]{"testing...",currState[0], "<",abs(delta),"<",currStateNext[0]});
         //check if it exists in range..if so..get ratio
-        
-        if (currState[0]<=abs(delta) && abs(delta)< currStateNext[0]){
+        if (delta<0){
+          finalIndex = 0;
+        } else if (currState[0]<=abs(delta) && abs(delta)< currStateNext[0]){
          // log(new Object[]{"winner!!"});
          //if positive use + speed, else use - speed
           finalIndex = i;
@@ -526,7 +546,7 @@ class WallMatrix {
   //columnIsFull(matrix, colIndex)
   private boolean columnIsFull(Hashtable matrix, int colIndex) {
   
-    //determine last row , based on shifting mode.
+    //determine last row , based on ing mode.
     int lastRowIndex;
     if (ANIMATION_MODE.equals("up")) {
       lastRowIndex = totalRows-1;
@@ -843,10 +863,10 @@ class WallMatrix {
     int extra = 0;
     float amountToShift, frameNum;
     for (int colIndex=0; colIndex<randSpeeds.length; colIndex++){ //columns
+        
         amountToShift = randSpeeds[colIndex]; //could be 0 , 1 , or 2
         if (amountToShift%1!=0){
-          frameNum = floor(map(amountToShift%1,0,1,0,4)); //if amountoshift = 1.25, than .25 than 4 frames
-            
+          frameNum = floor(map(amountToShift%1,1,0,4,0)); //if amountoshift = 1.25, than .25 than 4 frames
             extra = (frameCount%frameNum==0) ? 1  : 0;
         }
         popOffColumn(colIndex, floor(amountToShift)+extra);
@@ -1009,6 +1029,7 @@ class WallMatrix {
      //stop();
     //log(new Object[]{"matrix after additional shift:", matrixVisualize(currentMatrix)});
    
+   
     //see if we need to make another matrix "deck"
     if (!matrixIsFull(currentMatrix)) {
        //log (new Object[]{"**********************oh shnapppp matrix is fullll...gotta fix!!!!"});
@@ -1023,6 +1044,19 @@ class WallMatrix {
       //log(new Object[]{"recombined:", matrixVisualize(currentMatrix)});
     }
     
+    
+ //   int[] minMaxDomains = getDomainOfDomains(getRowDomains(currentMatrix));
+ //   boolean timeToGenerate = false;
+ //   int multiplier = 2; //how many extra matrixes ahead to think.
+ //   if (ANIMATION_MODE.equals("up")){
+ //     timeToGenerate = (minMaxDomains[1]<totalRows*multiplier); //if lest then 160 rows, than generate
+ //   }else{
+ //    timeToGenerate = (minMaxDomains[0]>totalRows*multiplier*-1); //if more then -160 rows, than generate
+ //   }
+ //   //see if we need to make another matrix "deck"
+ //   if (timeToGenerate) {
+ //     thread("generateMatrixInThread");
+    //}
   }
   
 
@@ -1048,7 +1082,7 @@ class WallMatrix {
      updateCurrentState();
     //get random set of numbers for amount of columns
     
-    randSpeeds = getNItemsRandomlyFromArr(applyMultiplierToArrayValues(defaultSpeeds, speedStates[floor(currentState)]), totalColumns); //additional speed 
+    randSpeeds = getNItemsRandomlyFromArr(speedStates[floor(currentState)], totalColumns); //additional speed 
   }
 
   public WallMatrix(int _totalRows, int _totalColumns, float _popularityFactor, int[] _lengthRange, float[] _catBreakdown, color[] _cr, color[] _crHot) {

@@ -19,13 +19,13 @@ import java.util.Hashtable;
 import processing.pdf.*;
 import com.google.gson.Gson;
 
-String VERSION = "0.49.2";
+String VERSION = "0.49.5";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;
 float boundStartY;
 PImage bg,fg,logo;
-PShape worldMap;
+PShape bgSVG,worldMap;
 PFont font;
 Gson jsonParser = new Gson();
 boolean animationIsPaused = false;
@@ -100,6 +100,7 @@ public void loadImagesAndControlPanel(){
    
   //background image init
    bg = loadImage("L1-L2Stair_PrototypeGrid_bg-01.png"); 
+   bgSVG = loadShape("bg_minimal.svg");
    bg.filter(INVERT);
    fg = loadImage("L1-L2Stair_PrototypeGrid_fg-01-01.png"); 
    logo = loadImage("nbbjDigital.png"); 
@@ -433,6 +434,10 @@ public PImage drawBackgroundImage(PImage img){
     image(img, 0, 0, width, width*ratio);
      return img;
 }
+public void drawBackgroundSVG(PShape svg){
+    float ratio = float(bg.height)/float(bg.width);
+    shape(svg, 0, 0, width, width*ratio);
+}
 
 
 //draw loading routin4
@@ -459,6 +464,14 @@ public void drawLoadingRoutine(){
     int h = hour();    // Values from 0 - 23
     return h+"-"+m+"-"+s;
  }
+ 
+ //we're gonna generate matrix in seprate thread
+ public void generateMatrixInThread(){
+      Hashtable[] pieces = matrix.transferMatrixOverflow(matrix.currentMatrix);
+      matrix.currentMatrix = matrix.combineMatrices(pieces[0], matrix.generateMatrix(pieces[1]));
+      log(new Object[]{"generated new!"});
+ }
+    
 /***********
 DRAW FUNCTIONALITY
 ***********/

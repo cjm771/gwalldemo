@@ -1,6 +1,6 @@
 GWALL DEMO
 ==========
-v. 0.49.2
+v. 0.49.5
 ----------
 A demo for G wall
 
@@ -23,12 +23,21 @@ Current Features
 Todo
 ----
 
-	- regional changes?
-	- dont change when last date
-	- test framerate
-		- IMAGES SLOW IT DOWN 
-			- reduce resolution
-		- generatematrix also slows it down
+	x test states:
+		state: 01
+			- 2018-04-12, 78
+			- 2018-04-13, 82
+		state: 02
+			- 2018-05-08, 88
+			- 2018-05-09, 94
+		state: 03
+			- 2018-06-23, 90
+			- 2018-06-24, 100
+		state: 04
+			- 2018-03-14, 83
+			- 2018-03-15, 100
+
+	- replace images with svgs
 	- UI
 		- default colors in swatch bar?
 		- zoom issues on Mac OS X? only on my end
@@ -44,7 +53,13 @@ Todo
 
 Change Log
 -----------
-
+	v0.49.5
+	-----
+	- using absolute state changes
+	- speed revised
+	- bar size now driven by states instead of country
+	x dont change when last date exceeds current date (for graph clicking)
+	
 	v0.49.2
 	-----
 	- using absolute state changes

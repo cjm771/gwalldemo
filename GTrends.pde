@@ -83,8 +83,12 @@ class GTrends{
       //reverse numbers to get smaller bars for higher number
       int reverseCountryValue = (int)((countryClamp[0]+countryClamp[1])-countryValue);
       //bars for 8-->4 to 10, bars for 2 --> 1 --> 3
+      //we just going to do simple bars now
+
+      
       countryBarRange = new int[]{ceil(reverseCountryValue*1.25), ceil(reverseCountryValue*2.25)};
       return total;
+      
    }
    
    public void loadCategories(){

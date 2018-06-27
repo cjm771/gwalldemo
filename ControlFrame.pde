@@ -533,9 +533,20 @@ class ControlFrame extends PApplet {
            zeroPrefix = "0";
          }
          String newDate = zeroPrefix+newMonth+"/"+searchDate.split("/")[1]+"/"+newYear;
-          cp5.get(Textfield.class, "date").setValue(newDate);
-          //then trigger event
-          date(newDate);
+         
+         //just in case...
+         if (newYear>year() || (newYear==year() &&newMonth>month()) || (newYear==year() && newMonth==month() && int(searchDate.split("/")[1])>day()-1)){
+           //uh oh date exceeded..dont do anything..
+         }else if (newYear==year() && newMonth==month() && int(searchDate.split("/")[1])>day()-1){
+           newDate = zeroPrefix+newMonth+"/"+"01"+"/"+newYear;
+           cp5.get(Textfield.class, "date").setValue(newDate);
+            //then trigger event
+            date(newDate);
+         }else{
+            cp5.get(Textfield.class, "date").setValue(newDate);
+            //then trigger event
+            date(newDate);
+           }
         }
     }
     textAlign(LEFT);
