@@ -1,6 +1,6 @@
 GWALL DEMO
 ==========
-v. 0.49
+v. 0.49.2
 ----------
 A demo for G wall
 
@@ -24,6 +24,7 @@ Todo
 ----
 
 	- regional changes?
+	- dont change when last date
 	- test framerate
 		- IMAGES SLOW IT DOWN 
 			- reduce resolution
@@ -43,6 +44,11 @@ Todo
 
 Change Log
 -----------
+
+	v0.49.2
+	-----
+	- using absolute state changes
+
 	v0.49
 	-----
 	x saving

@@ -19,7 +19,7 @@ import java.util.Hashtable;
 import processing.pdf.*;
 import com.google.gson.Gson;
 
-String VERSION = "0.49";
+String VERSION = "0.49.2";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;
@@ -99,7 +99,7 @@ public void loadImagesAndControlPanel(){
   //store ratio of image for scaling 
    
   //background image init
-   bg = loadImage("L1-L2Stair_PrototypeGrid_bg-01-sm.jpg"); 
+   bg = loadImage("L1-L2Stair_PrototypeGrid_bg-01.png"); 
    bg.filter(INVERT);
    fg = loadImage("L1-L2Stair_PrototypeGrid_fg-01-01.png"); 
    logo = loadImage("nbbjDigital.png"); 

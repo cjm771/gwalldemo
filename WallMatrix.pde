@@ -30,19 +30,19 @@ class WallMatrix {
   //settings
   int[] lengthRange;
   int matrixId = 0; //deckId to pair with vertical bar id..incrementall grows
-  float[] defaultSpeeds = new float[]{.75,1,2}; //default speeds (randomly to chose from)
+  float[] defaultSpeeds = new float[]{1,2,3}; //default speeds (randomly to chose from)
   float[] randSpeeds; //random selection from default speeds depending on amount of columns
   float popularityFactor = 0; //0.0-1.0 number representing popularity
   float[] catBreakdown;
   color[] cr, crHot;
   float currentState  = 0.0; //state of day (represents index for colorStates + speedStates)
-  float[] speedStates = new float[]{1.0, 1.05,1.1,1.2,1.3};
+  float[] speedStates = new float[]{.75, .85,.95,1.0,1.1};
   //color states are the possible states (ratio of cool tones)
   float[] colorStates = new float[]{1, 0.9, 0.75, 0.1, 0.0};
   
   //delta moves: the deltat relationship to moving of states
   //percentage 0 = delta, 1 = change for +, 2 = change for - 
-  /*
+   
   float[][] deltaMoves = new float[][]{ 
     new float[]{0,  -1.0,  -1.0},  //no major change always degrade
     new float[]{4,  1.0,  -1.0},
@@ -50,15 +50,8 @@ class WallMatrix {
     new float[]{10,  3.0,  -3.0}, 
     new float[]{15,  4.0,  -4.0} 
   };
-  */
-    float[][] deltaMoves = new float[][]{ 
-    new float[]{0,  -1.0,  -1.0},  //no major change always degrade
-    new float[]{9,  1.0,  -1.0},
-    new float[]{20,  2.0,  -2.0}, 
-    new float[]{30,  3.0,  -3.0}, 
-    new float[]{40,  4.0,  -4.0} 
-  };
-    
+  
+   
     
   String ANIMATION_MODE = "down"; //up or down..animation mode
 
@@ -274,12 +267,14 @@ class WallMatrix {
           change = calculateStateChange(tmpDelta);
           //log(new Object[]{"date:",dateStrings[i],"original:", tmpCurrentState,"change to do: ", change, " --> new: ", tmpCurrentState+change});
           tmpCurrentState =  constrain(tmpCurrentState+change, 0, colorStates.length-1);
+          
         if (dateStrings[i].equals(currentDateStr)){
           break; //exit for loop we done.
         }
       }
-      currentState = constrain(tmpCurrentState, 0, colorStates.length-1);
-      //log (new Object[]{"current state is:", currentState});
+      //currentState = constrain(tmpCurrentState, 0, colorStates.length-1);
+      currentState = calculateStateIndex(tmpDelta);
+      log (new Object[]{"current state is:", currentState});
   }
   //set warm and cool given the currentMatrix and mId 
   public Hashtable<String, MatrixCell> setWarmCool(Hashtable<String, MatrixCell> matrix, int mId){
@@ -316,6 +311,25 @@ class WallMatrix {
         }
       }
       return finalChange;
+  }
+  
+    public float calculateStateIndex(float delta){
+    float[] currState, currStateNext;
+    float finalIndex = 0;
+    for (int i=0; i<deltaMoves.length; i++){
+        currState = deltaMoves[i];
+        currStateNext = (i+1!=deltaMoves.length) ? deltaMoves[i+1] : new float[]{100, 0}; //if last make a new one at 100
+        //log(new Object[]{"testing...",currState[0], "<",abs(delta),"<",currStateNext[0]});
+        //check if it exists in range..if so..get ratio
+        
+        if (currState[0]<=abs(delta) && abs(delta)< currStateNext[0]){
+         // log(new Object[]{"winner!!"});
+         //if positive use + speed, else use - speed
+          finalIndex = i;
+          break;
+        }
+      }
+      return finalIndex;
   }
   public String updateBarId(String barId, int newMatrixId){
     return createBarId(newMatrixId, explodeBarId(barId)[1]); 
