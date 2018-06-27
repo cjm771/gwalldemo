@@ -30,25 +30,35 @@ class WallMatrix {
   //settings
   int[] lengthRange;
   int matrixId = 0; //deckId to pair with vertical bar id..incrementall grows
-  float[] defaultSpeeds = new float[]{1,1.5,2,2.25}; //default speeds
+  float[] defaultSpeeds = new float[]{.75,1,2}; //default speeds (randomly to chose from)
   float[] randSpeeds; //random selection from default speeds depending on amount of columns
   float popularityFactor = 0; //0.0-1.0 number representing popularity
   float[] catBreakdown;
   color[] cr, crHot;
   float currentState  = 0.0; //state of day (represents index for colorStates + speedStates)
-  float[] speedStates = new float[]{1, 1, 1.2, 1.3, 1.4};
+  float[] speedStates = new float[]{1.0, 1.05,1.1,1.2,1.3};
   //color states are the possible states (ratio of cool tones)
   float[] colorStates = new float[]{1, 0.9, 0.75, 0.1, 0.0};
   
   //delta moves: the deltat relationship to moving of states
   //percentage 0 = delta, 1 = change for +, 2 = change for - 
+  /*
   float[][] deltaMoves = new float[][]{ 
+    new float[]{0,  -1.0,  -1.0},  //no major change always degrade
+    new float[]{4,  1.0,  -1.0},
+    new float[]{6,  2.0,  -2.0}, 
+    new float[]{10,  3.0,  -3.0}, 
+    new float[]{15,  4.0,  -4.0} 
+  };
+  */
+    float[][] deltaMoves = new float[][]{ 
     new float[]{0,  -1.0,  -1.0},  //no major change always degrade
     new float[]{9,  1.0,  -1.0},
     new float[]{20,  2.0,  -2.0}, 
     new float[]{30,  3.0,  -3.0}, 
     new float[]{40,  4.0,  -4.0} 
   };
+    
     
   String ANIMATION_MODE = "down"; //up or down..animation mode
 
@@ -297,7 +307,8 @@ class WallMatrix {
         currStateNext = (i+1!=deltaMoves.length) ? deltaMoves[i+1] : new float[]{100, 0}; //if last make a new one at 100
         //log(new Object[]{"testing...",currState[0], "<",abs(delta),"<",currStateNext[0]});
         //check if it exists in range..if so..get ratio
-        if (currState[0]<=abs(delta) && abs(delta)<= currStateNext[0]){
+        
+        if (currState[0]<=abs(delta) && abs(delta)< currStateNext[0]){
          // log(new Object[]{"winner!!"});
          //if positive use + speed, else use - speed
           finalChange = (delta<0) ? currState[2] : currState[1];
@@ -564,8 +575,7 @@ class WallMatrix {
     return newMatrix;
   }
   //transferMatrixOverflow(sourceMatrix): move stuff past max to new matrix
-  private Hashtable[] transferMatrixOverflow(Hashtable sourceMatrix) {
-    Hashtable<String, MatrixCell> tmpMatrix = new Hashtable();
+  private Hashtable[] transferMatrixOverflow(Hashtable sourceMatrix) { Hashtable<String, MatrixCell> tmpMatrix = new Hashtable();
     Hashtable<String,MatrixCell> newMatrix = new Hashtable();
     //anything over totalrows..
     int lastEmptyIndex = getLastEmptyIndex(sourceMatrix);
@@ -816,12 +826,15 @@ class WallMatrix {
 
   
   public void shiftColumnsAdditionalSpeed(){
-    int extra;
+    int extra = 0;
     float amountToShift, frameNum;
     for (int colIndex=0; colIndex<randSpeeds.length; colIndex++){ //columns
         amountToShift = randSpeeds[colIndex]; //could be 0 , 1 , or 2
-        frameNum = 1/(amountToShift%1); //if amountoshift = 1.25, than .25 than 4 frames
-        extra = (frameCount%frameNum==0) ? 1  : 0;
+        if (amountToShift%1!=0){
+          frameNum = floor(map(amountToShift%1,0,1,0,4)); //if amountoshift = 1.25, than .25 than 4 frames
+            
+            extra = (frameCount%frameNum==0) ? 1  : 0;
+        }
         popOffColumn(colIndex, floor(amountToShift)+extra);
     }
   }
@@ -991,12 +1004,13 @@ class WallMatrix {
       //log(new Object[]{"truncated to 0:", matrixVisualize(pieces[0])});
       //log(new Object[]{"leftover:", matrixVisualize(pieces[1])});
       //now we take out truncated matrix, and make a new frame using the leftover portions as a base (creating a seamless transition)
-      currentMatrix = combineMatrices(pieces[0], generateMatrix(pieces[1]));
-
+       currentMatrix = combineMatrices(pieces[0], generateMatrix(pieces[1]));
+      log(new Object[]{"generated new!"});
       //log(new Object[]{"recombined:", matrixVisualize(currentMatrix)});
     }
     
   }
+  
 
   public void setSettings(int[] _lengthRange, float _popularityFactor, float[] _catBreakdown, color[] _cr, color[] _crHot) {
     lengthRange= _lengthRange;
@@ -1038,7 +1052,7 @@ class WallMatrix {
 
 //each cell houses a color index, warm/cool,bar id
 class MatrixCell {
-  int colorIndex, pixelLength, pixelId;
+  int colorIndex, pixelLength, pixelId; //<>//
   String uuid, prevBarOriginCellUUID; //cell uuid
   color nextBarColor; //next cell we store this to smoothen colors
   String verticalBarId, prevVerticalBarId;

@@ -19,7 +19,7 @@ import java.util.Hashtable;
 import processing.pdf.*;
 import com.google.gson.Gson;
 
-String VERSION = "0.48";
+String VERSION = "0.49";
 float masterX = 1280;
 float masterY = 800;
 float boundStartX;
@@ -56,7 +56,7 @@ SETUP
 
 void setup() {
   //15 frames 
-   frameRate(32);
+   frameRate(15);
    smooth(4);
    //to avoid pdf erros...
    PFont font = createFont("LSANS.TTF",32);
@@ -99,7 +99,7 @@ public void loadImagesAndControlPanel(){
   //store ratio of image for scaling 
    
   //background image init
-   bg = loadImage("L1-L2Stair_PrototypeGrid_bg-01.png"); 
+   bg = loadImage("L1-L2Stair_PrototypeGrid_bg-01-sm.jpg"); 
    bg.filter(INVERT);
    fg = loadImage("L1-L2Stair_PrototypeGrid_fg-01-01.png"); 
    logo = loadImage("nbbjDigital.png"); 
@@ -110,12 +110,14 @@ public void loadImagesAndControlPanel(){
   //folder browser..unfortunately have to do outside of controlframe
   public void doFolderRoutine(){
       selectFolder("Select a folder to export to:", "folderSelected");
-  }
+  }  
 
+    
   //folder selected callback (used by controlframe)
     public void folderSelected(File selection) {
     if (selection == null) {
       println("Window was closed or the user hit cancel.");
+      win.endSaveRoutine();
     } else {
       //save export folder...
       exportFolder =  selection.getAbsolutePath();
@@ -350,23 +352,32 @@ public void drawSketches(){
   float[] range= new float[]{500, 20}; //100- millis = black , 20+ millis = white
    int timePassed = 0;
   //if we're drawing a sketch
-  if (gwc.drawingASketch){
+  if (gwc.drawingASketch>=1){
      //look at current pixel id
      //get millis passed
      int lastKnownIndex = 0; 
      timePassed = millis()-gwc.sketchStartedAt;
+     boolean timeToFade = false;
+     int timeLeft = 0;
+      if (gwc.drawingASketch==2){ //fade out init
+         if (gwc.fadeOutStart == 0){
+           gwc.fadeOutStart = millis();
+         }
+         timeLeft = gwc.waitUntilFade+gwc.fadeOutAnimLength-(millis()-gwc.fadeOutStart);
+      }
      for (int i=0; i<gwc.currentSketch.size(); i++){
        
        //get item
        JSONObject currentItem = gwc.currentSketch.getJSONObject(i);
-      
+       int rowIndex = currentItem.getJSONArray("coord").getInt(1);
+        int colIndex = currentItem.getJSONArray("coord").getInt(0);
        //time constraints, if its 0 and 0 time has passed if its 20 now and 0 was drawn 20 seconds ago
        //first wee see if time has passed yet to render this guy..if not skip
        
        lastKnownIndex = (timePassed-currentItem.getFloat("timestamp")>0) ? i : lastKnownIndex;
-       if (timePassed>=currentItem.getFloat("timestamp")){
-          int rowIndex = currentItem.getJSONArray("coord").getInt(1);
-         int colIndex = currentItem.getJSONArray("coord").getInt(0);
+       
+       if (timePassed>=currentItem.getFloat("timestamp") && gwc.drawingASketch==1){ //drawing..
+         
          int alphaVal = (int)map(constrain(timePassed-currentItem.getFloat("timestamp"), range[1], range[0]), range[1], range[0],0, 255);
          String key = matrix.getIdStr(rowIndex, colIndex);
          if (Rects.containsKey(key)){
@@ -374,16 +385,29 @@ public void drawSketches(){
            rect.renderGlow(color(255,255,255, alphaVal));
            rect.renderRect(color(255,255,255, alphaVal));
          }
+         timeToFade = lastKnownIndex>=gwc.currentSketch.size()-1;
+         if (timeToFade){
+           gwc.drawingASketch=2;
+         }
+       }else if (gwc.drawingASketch==2){ //fade out
+          
+           int alphaVal = (int)map(constrain(timeLeft, 0, gwc.fadeOutAnimLength), 0, gwc.fadeOutAnimLength,0, 255);
+            //log(new Object[]{"time left:", timeLeft,"alphaval:",alphaVal});
+           String key = matrix.getIdStr(rowIndex, colIndex);
+           if (Rects.containsKey(key)){
+             Bounds rect = Rects.get(key);
+             rect.renderGlow(color(255,255,255, min(0,alphaVal-30)));
+             rect.renderRect(color(255,255,255, alphaVal));
+           }
+           if (timeLeft<=0){
+             gwc.drawingASketch=0;
+             gwc.fadeOutStart = 0;
+           }
        }
        
      }
-     if (lastKnownIndex>=gwc.currentSketch.size()-1){
-        //reset
-        gwc.drawingASketch=false;
-     }
-
 }else if (gwc.sketchesToDo.size()>0){
-    gwc.drawingASketch=true;
+    gwc.drawingASketch=1;
     gwc.currentSketch = gwc.sketchesToDo.get(0);
     gwc.sketchesToDo.remove(0);
     gwc.sketchStartedAt = millis();
@@ -409,7 +433,6 @@ public PImage drawBackgroundImage(PImage img){
     image(img, 0, 0, width, width*ratio);
      return img;
 }
-
 
 
 //draw loading routin4
@@ -440,9 +463,13 @@ public void drawLoadingRoutine(){
 DRAW FUNCTIONALITY
 ***********/
 
+void testFrameRate(){
+   log(new Object[]{"frame rate: ",frameRate});
+}
 
 void draw() {
   //check if we need to do an export routine
+   //testFrameRate();
   if (exportMode==0){
 
    log(new Object[]{"saving to.."+exportFolder});
@@ -479,7 +506,7 @@ void draw() {
         translate(-xPan, -yPan);
         background(0);
         //do shifting animation
-        if (!animationIsPaused){
+        if (!animationIsPaused){ 
           matrix.shift();
         }
       
@@ -488,11 +515,11 @@ void draw() {
       
       //draw bg
       tint(255,150);
-      drawBackgroundImage(bg);
+      //drawBackgroundImage(bg);
       drawRectangles();
       drawSketches();
       tint(255,100);
-      drawBackgroundImage(fg);
+      //drawBackgroundImage(fg);
     }
   }
   if (exportMode==1){ //check if we need to do end export routine   

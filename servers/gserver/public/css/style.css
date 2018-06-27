@@ -1,39 +1,71 @@
 body,html{
-	background: #e1e1e1;
+	background: #333;
 	margin: 0px;
 	padding: 0px;
+	color: #fff;
 	font-family: arial, helvetica, sans-serif;
 	height: 100%;
 }
 .pxltr_wpr{
 	margin: 0px auto;
 	display: block;
+	border: 0;
+}
+.pxltr_wpr canvas{
+	background: #000;
 }
 #container{
-	max-width: 800px;
+	max-width: 400px;
 	margin: 0px auto;
-	background: #fff;
+	background: #000;
 	height: 100%;
 	position: relative;
 }
 #miniToolbar{
-	padding: 10px;
-	background: #c0c0c0;
+	padding: 10px 20px;
+	background: #000;
 	margin-bottom: 5px;
 }
+#miniToolbar .btn{
+	padding: 5px;
+	color: #fff;
+	background: #333;
+	vertical-align: top;
+	margin: 5px;
+	border: 0;
+	border-radius: 10% ;
+}
+#miniToolbar .btn.left{
+	float: left;
+}
+#miniToolbar  .btn:hover{
+	background: #1CB9E2 !important;
+	cursor: pointer;
+}
+#miniToolbar  .btn.right{
+	float: right;
+}
+#miniToolbar .btn.green{
+	background: #00A000FF;
+}
+#miniToolbar .btn.red{
+	background: #FE0018FF;
+}
 #activeView{
+	padding: 20px;
 }
 #menu{
 	background: #000;
 	width: 100%;
 	position: absolute;
 	bottom: 0;
+	
 }
 #menu ul{
 	padding: 0px;
 	display: block;
-	margin:0px;	
-	width: 100%;
+	margin:20px 40px 0px 40px;	
+	width: 80%;
 }
 #menu li{
 	list-style-type: none;
@@ -52,10 +84,28 @@ body,html{
 	text-decoration: none;
 	color: #ffffff;
 	display: block;
+	text-transform: uppercase;
 	padding: 20px;
 }
-#menu li.active{
-	background: #1CB9E2;
+#menu li.active a{
+	color: #1C97E2;
+}
+#footer{
+	margin: 0px 40px;
+	padding: 10px 0;
+	border-top: 1px solid #333;
+}
+#footer .logo{
+	float: left;
+}
+#footer .version{
+	float: right;
+	font-size: 10px;
+	color: #666;
+}
+#footer .logo img{
+	opacity: 0.75;
+	height: 14px;
 }
 
 /* Smartphones (portrait and landscape) ----------- */

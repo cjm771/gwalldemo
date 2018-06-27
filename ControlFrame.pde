@@ -27,8 +27,8 @@ boolean buttoncolorResetInit = false;
 boolean buttonUp = true;
 
 String textValue = "Seattle";
-String searchDate = "02/01/2014";
-String reformattedDate= "2014-02";
+String searchDate = "06/01/2018";
+String reformattedDate= "2018-06";
 int[] defaultColors = new int[]{
   color(66, 134, 245), 
   color(52, 168, 83), 
@@ -402,7 +402,9 @@ class ControlFrame extends PApplet {
       stroke(155);
       strokeWeight(1);
       int[] nums = gt.getDateValuesAsList(reformattedDate);
+      int[] heights = gt.getDateValuesAsList(reformattedDate);
       String[] dateNames = gt.getDateStringsAsList(reformattedDate, "shorthand");
+      
       int[] xPerDate = new int[dateNames.length];
         //line(x, y, x+w, y);
         strokeWeight(1);
@@ -411,10 +413,11 @@ class ControlFrame extends PApplet {
       vertex(x, y);
       int[][] vertices = new int[nums.length][2];
       int[] currentDayVertex = new int[2];
-      for (int i=0; i<nums.length; i++) {  
-        nums[i] = (int)map(nums[i], 0, 100, 0, h);
-        int vx = x+(i*w/(nums.length-1));
-        int vy = y-nums[i];
+      for (int i=0; i<nums.length; i++) { 
+        //_log(new Object[]{"nums:", nums[i], "date name:", dateNames[i]});
+        heights[i] = (int)map(heights[i], 0, 100, 0, h);
+        int vx = x+(i*w/(heights.length-1));
+        int vy = y-heights[i];
         //if it equals current month day
         if (dateNames[i].equals(parseMonthDay())) {
           currentDayVertex = new int[]{vx, vy};
@@ -423,7 +426,7 @@ class ControlFrame extends PApplet {
         //text labels
         textSize(10);
         fill(255);
-        if (i%5==0 || i==nums.length-1) {
+        if (i%5==0 || i==heights.length-1) {
           pushMatrix();
           translate(vx, y+30);
           rotate(-HALF_PI);
@@ -443,12 +446,12 @@ class ControlFrame extends PApplet {
       textSize(10);
       fill(255);
       //percentage
+       textAlign(RIGHT);
       text(gt.currentDateValue+"%", currentDayVertex[0], currentDayVertex[1]-10);
       //green or red for delta
-      String prefix = (gt.delta<0) ? "\u25BC" : (gt.delta==0) ? "" : "\u25B2";
+      String prefix = (gt.delta<0) ? "\u25BC" : (gt.delta==0) ? "\u25BC" : "\u25B2";
       fill(((gt.delta<0) ? color(255,0,0) : (gt.delta==0) ? color(250,250,250) : color(0,255,0)));
-      textAlign(RIGHT);
-      text(prefix+gt.delta+"%", x+w, y-h);
+      text(prefix+gt.delta+"%", x+w+40, y-h);
       textAlign(LEFT);
       fill(255);
       checkGraphMapHover(x, y, w, h, dateNames, nums);
@@ -492,7 +495,7 @@ class ControlFrame extends PApplet {
       line(mouseX, y,mouseX, y-nums[calcIndex]); 
      
       String newDate = dateNames[calcIndex]+"/"+searchDate.split("/")[2];
-      text("Click to jump to: "+dateNames[calcIndex]+" ["+int(((float)nums[calcIndex]/(float)h*100))+"% ]", x+w, y-h-20);
+      text("Click to jump to: "+dateNames[calcIndex]+" ["+nums[calcIndex]+"% ]", x+w, y-h-20);
       if (mousePressed){
         //set new value
         cp5.get(Textfield.class, "date").setValue(newDate);
@@ -637,7 +640,13 @@ class ControlFrame extends PApplet {
     }
     endShape();
   }
-
+  
+  //reset button and stuff
+  public void endSaveRoutine(){
+      Button btn = cp5.get(Button.class, "saveStill");
+      btn.setLabel("Save PDF");
+      btn.unlock();
+  }
 
   void draw() {
     if (exportMode==2){
@@ -695,10 +704,12 @@ class ControlFrame extends PApplet {
       }
     } 
     if (exportMode==3){ //we're in export mode and need to finish
+      try{
       endRecord();
-      Button btn = cp5.get(Button.class, "saveStill");
-      btn.setLabel("Save PDF");
-      btn.unlock();
+      }catch (Exception e){
+         _log(new Object[]{"error when trying to end record! try again."});
+      }
+      endSaveRoutine();
       exportMode = 4;
     }
   }

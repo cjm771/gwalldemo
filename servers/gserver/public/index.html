@@ -23,8 +23,9 @@
 		    	<!-- root -->
 				<div data-route="root" class='castle-view'>
 		            <div id='miniToolbar'>
-		            	<button id='sendSketch'>Send</button>
-		            	<button id='clearSketch'>Clear</button>
+		            	<button id='sendSketch'  class='btn left green'>Send</button>
+		            	<button id='clearSketch' class='btn left red'>Clear</button>
+		            	<div style='clear: both'> </div>
 		            </div>
 		            <canvas id='myCanvas' />
 		        </div>
@@ -35,9 +36,19 @@
 		    </div>
 		    <div id='menu'>
 		    	<ul id='tabs'>
-					<li class='active'><a  href='#'>Draw</a></li>
+					<li><a  href='#'>Draw</a></li>
 					<li><a href='#info'>Info</a></li>
 				</ul>
+				<div id='footer'>
+					<div class='logo'>
+						<img src='img/nbbjDigital.png' />
+					</div>
+					<div class='version'>
+						{{ version }}
+					</div>
+					<div style='clear: both'> </div>
+				</div>
 		    </div>
+		</div>
     </body>
 </html>

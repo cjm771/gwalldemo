@@ -68,7 +68,7 @@ var server = net.createServer(function(socket) {
 
 
 server.on('end', function (e) {
-    console.log('Aerror occurred..',e);
+    console.log('An error occurred..',e);
     setTimeout(function () {
       server.close();
       server.listen(TELNET_PORT, TELNET_HOST);
@@ -76,7 +76,7 @@ server.on('end', function (e) {
   });
 
 server.on('close', function (e) {
-    console.log('Aerror occurred..',e);
+    console.log('An error occurred..',e);
     setTimeout(function () {
       server.close();
       server.listen(TELNET_PORT, TELNET_HOST);
@@ -85,7 +85,7 @@ server.on('close', function (e) {
 
 
 server.on('error', function (e) {
-    console.log('Aerror occurred..',e);
+    console.log('An error occurred..',e);
     setTimeout(function () {
       server.close();
       server.listen(TELNET_PORT, TELNET_HOST);

@@ -16,7 +16,7 @@ import java.util.ArrayList;
 class GWallClient {
   
   //WIP...set enabled to true to try it out, make sure you're server is running!
-  boolean ENABLED  = true;
+  boolean ENABLED  = false;
   
   Client myClient;
   String dataIn; 
@@ -28,7 +28,10 @@ class GWallClient {
   
   int pixelIndex = 0; //where the pixel is at
   int sketchStartedAt = 0; //when we started drawing sketch
-  boolean drawingASketch = false; //are we drawing a sketch?
+  int fadeOutStart  = 0; //fade out timetstamp start, 0 means not init'd
+  int waitUntilFade = 1000; //500 millis
+  int fadeOutAnimLength = 1000; //500 millis 
+  int drawingASketch = 0; //are we drawing a sketch? 0=no, 1=done ..to fade mode, 2=finish, back to 0
   
   public GWallClient(PApplet _applet){
     
@@ -36,10 +39,10 @@ class GWallClient {
       // Connect to the local machine at port xxx.
       // This example will not run if you haven't
       // previously started a server on this port.
-     //  wsc= new WebsocketClient(_applet, "ws://localhost:40510/"); 
          if (ENABLED){
            try{
-           myClient = new Client(_applet, "127.0.0.1", 45010);
+           myClient = new Client(_applet, "localhost", 45010);
+           //myClient = new Client(_applet, "gwall-server.now.sh", 443);
            log(new Object[]{"client info:", "active:", myClient.active()});
            }catch(Exception e){
              println("error occurred when trying to reach out to server");

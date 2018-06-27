@@ -130,7 +130,34 @@ class GTrends{
      return output;
   }
   
-  
+  //override date values
+  public JSONArray overrideDateValues(JSONArray popularityData){
+    Hashtable<String, Float> overrides = new Hashtable();
+    //read csv
+    String[] rows = loadStrings("overrides.txt");
+    for (String row : rows){
+      //index 0 = date, 1 = value
+      if (!row.trim().startsWith("#") && row.trim().contains(",")) {
+        String[] cells = split(row, ",");
+        overrides.put(cells[0].trim(), Float.parseFloat(cells[1])); 
+      }
+    }
+    JSONObject tmpObj = new JSONObject();
+    String currDate;
+     Float sourceValue;
+    for (int key=0; key<popularityData.size(); key++){
+        tmpObj = popularityData.getJSONObject(key);
+        currDate = tmpObj.getString("date").trim();
+        if (overrides.containsKey(currDate)){
+          log(new Object[]{"key contained!:", currDate});
+          sourceValue = overrides.get(currDate);
+          tmpObj.setFloat("value", sourceValue);
+          popularityData.setJSONObject(key, tmpObj);
+        }
+    }
+    return popularityData;
+
+  }
 
   //generic query to specified server
   //ex.  "graph", {terms: "seattle", restrictions.geo: "blah"});
@@ -239,9 +266,12 @@ class GTrends{
           //store in our variables
           
           if (setMainData==true){
-            currentDateValue = popularityData.getJSONObject(key).getInt("value");
-            prevDateValue = (key-1>=0) ? popularityData.getJSONObject(key-1).getInt("value") : currentDateValue;
+            log(popularityData.getJSONObject(key));
+            currentDateValue = (int)popularityData.getJSONObject(key).getFloat("value");
+            log(new Object[]{"setting date:", popularityData.getJSONObject(key).getString("date")," ----> ",currentDateValue });
+            prevDateValue = (key-1>=0) ? (int)popularityData.getJSONObject(key-1).getFloat("value") : currentDateValue;
             delta = currentDateValue-prevDateValue;
+            log(new Object[]{"current: ", currentDateValue, "prev: ", prevDateValue, "delta:", delta});
             //clamp
             clampedCurrentDateValue = (int)map(min(max(currentDateValue, popularityClamp[0]), popularityClamp[1]),popularityClamp[0], popularityClamp[1],0,100); //clamp to new range...than get new breakdown based on that
           }
@@ -505,6 +535,8 @@ class GTrends{
            if (category<0){
               //this is generic all categories so store current day value info.. true flag for storing to main instance
              popularityData = results.getJSONObject("data").getJSONArray("lines").getJSONObject(0).getJSONArray("points");
+             //if we have overrides lets set it (set via overrides.txt)
+             popularityData = overrideDateValues(popularityData);
              getDateValue(popularityData, specificDay, true);
            }
         }
